@@ -23,6 +23,11 @@ env:
   # URLs - so it falls back to the account this repo is bound to.
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID || '7357c2534797a4c04fc95ec58cc04a89' }}
+  # The smoke test signs into /admin. The Worker defaults to admin/admin; if you
+  # replace the password with a secret, add the same values as SMOKE_ADMIN_USER /
+  # SMOKE_ADMIN_PASSWORD repository secrets and the smoke test follows.
+  SMOKE_ADMIN_USER: ${{ secrets.SMOKE_ADMIN_USER || 'admin' }}
+  SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD || 'admin' }}
 
 jobs:
   deploy:

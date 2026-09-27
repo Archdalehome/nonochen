@@ -27,6 +27,10 @@
     "enabled": true
   },
   "vars": {
+    // /admin/login signs in with admin/admin out of the box. Replace it without
+    // touching the repo (sessions signed with the old password are invalidated):
+    //   npx wrangler secret put ADMIN_USER
+    //   npx wrangler secret put ADMIN_PASSWORD
     "SITE_NAME": "Chen Furniture",
     "CURRENCY": "GBP",
     "CURRENCY_SYMBOL": "£"

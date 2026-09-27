@@ -6,33 +6,18 @@
  * rendered on the server.
  */
 import { money } from './html.js';
+import { readCookie, setCookie } from './cookies.js';
 
 export const CART_COOKIE = 'el_cart';
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 const newId = () => crypto.randomUUID().replace(/-/g, '').slice(0, 32);
 
-const readCookie = (request, name) => {
-  const header = request.headers.get('cookie') || '';
-  for (const part of header.split(';')) {
-    const [key, ...rest] = part.trim().split('=');
-    if (key === name) return decodeURIComponent(rest.join('='));
-  }
-  return '';
-};
-
 export const cartId = (request) => readCookie(request, CART_COOKIE);
 
-export const setCartCookie = (headers, id) => {
-  headers.append(
-    'set-cookie',
-    `${CART_COOKIE}=${id}; Path=/; Max-Age=${MAX_AGE}; HttpOnly; SameSite=Lax`
-  );
-};
+export const setCartCookie = (headers, id) => setCookie(headers, CART_COOKIE, id, { maxAge: MAX_AGE });
 
-export const clearCartCookie = (headers) => {
-  headers.append('set-cookie', `${CART_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`);
-};
+export const clearCartCookie = (headers) => setCookie(headers, CART_COOKIE, '', { maxAge: 0 });
 
 const ensureCart = async (db, id) => {
   await db.prepare('INSERT OR IGNORE INTO carts (id) VALUES (?)').bind(id).run();

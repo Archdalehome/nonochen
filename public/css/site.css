@@ -272,6 +272,36 @@ a:hover { color: var(--bs-link-hover-color); }
   flex-shrink: 0;
 }
 
+/* Category strip: the links managed in /admin, right under the announcement bar. */
+.category-bar { background-color: #fff; }
+
+.category-bar__list {
+  justify-content: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.category-bar__list::-webkit-scrollbar { display: none; }
+.category-bar__item { flex: 0 0 auto; }
+
+.category-bar__link {
+  letter-spacing: .08em;
+  white-space: nowrap;
+  border-bottom: 1px solid transparent;
+}
+
+.category-bar__link:hover,
+.category-bar__link:focus-visible { border-bottom-color: var(--cf-black); }
+
+.category-bar__link.is-current {
+  font-weight: 500;
+  border-bottom-color: var(--cf-black);
+}
+
+@media (max-width: 767.98px) {
+  .category-bar__list { justify-content: flex-start; }
+}
+
 /* Icons are inline SVGs with no intrinsic size, so give them sane defaults. */
 .navbar svg { width: 22px; height: 22px; }
 .btn svg,
@@ -712,6 +742,15 @@ body > footer small { font-size: .75rem; }
 
 #site-toasts { z-index: 1080; }
 .text-decoration-line-through { color: var(--cf-muted-soft); }
+
+/* ------------------------------------------------------------------- admin -- */
+
+/* The /admin screens share the brand typography but none of the storefront chrome. */
+.admin-header { letter-spacing: .02em; }
+.admin-header a:hover { text-decoration: underline; text-underline-offset: .2em; }
+.admin code { color: var(--cf-black); background-color: var(--cf-surface); padding: .1rem .35rem; }
+.admin .form-label { color: var(--cf-black); }
+.admin .alert { border: 0; }
 
 /* ------------------------------------------------------ motion / print -- */
 

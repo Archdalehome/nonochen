@@ -2,6 +2,34 @@ import { html } from '../lib/html.js';
 import { icons, svgLogo } from './icons.js';
 import { announcementBar } from './partials.js';
 
+/* --------------------------------------------------------- category strip ---- */
+
+/**
+ * The product categories managed in /admin, rendered as a slim strip directly
+ * under the black announcement bar. Links scroll horizontally on small screens.
+ */
+export const categoryBar = (list = [], path = '') => {
+  if (!list.length) return '';
+  return html`
+    <nav class="category-bar border-bottom" aria-label="Product categories">
+      <div class="container-fluid container-xl px-2">
+        <ul class="category-bar__list list-unstyled d-flex align-items-stretch mb-0">
+          ${list.map((item) => {
+            const href = String(item.href || '#');
+            const current = href.split('?')[0] === path;
+            return html`<li class="category-bar__item">
+              <a
+                href="${href}"
+                class="category-bar__link d-block fs-8 text-uppercase text-reset text-decoration-none py-2 px-3 ${current ? 'is-current' : ''}"
+                ${current ? html`aria-current="page"` : ''}
+              >${item.name}</a>
+            </li>`;
+          })}
+        </ul>
+      </div>
+    </nav>`;
+};
+
 /* ------------------------------------------------------------- mega menu ---- */
 
 export const megaMenu = (item, index) => html`
@@ -114,10 +142,11 @@ export const mobileNav = (nav) => html`
 
 /* ------------------------------------------------------------------ header ---- */
 
-export const header = (settings, nav, cart) => html`
+export const header = (settings, nav, cart, categories = [], path = '') => html`
   <header class="site-header">
     <div class="site-header__bar">
       ${announcementBar(settings)}
+      ${categoryBar(categories, path)}
       <nav class="navbar bg-white p-0 border-bottom">
         <div class="container-fluid container-xl px-2">
           <div class="d-flex justify-content-center w-100 top-navbar align-items-center py-2 py-md-0">

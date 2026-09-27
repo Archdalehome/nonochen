@@ -78,6 +78,124 @@ const collections = await check('/collections');
 const collection = (collections.body.match(/\/collections\/([a-z0-9-]+)/) || [])[1];
 if (collection) await check(`/collections/${collection}`);
 
+/* admin ------------------------------------------------------------------ */
+
+// The category strip must sit under the black announcement bar on the home page.
+const home = await check('/');
+const barAt = home.body.indexOf('category-bar');
+const announcementAt = home.body.indexOf('announcement-bar');
+if (barAt < 0 || announcementAt < 0 || barAt < announcementAt) {
+  failures++;
+  console.log('FAIL the category strip is not rendered under the announcement bar');
+}
+const barLink = (home.body.match(/href="([^"]+)"\s+class="category-bar__link/) || [])[1];
+if (barLink) await check(barLink);
+else console.log('     note: no categories in the top bar yet');
+
+console.log('\nadmin');
+// The Worker falls back to admin/admin; SMOKE_ADMIN_* follow a custom password
+// (the deploy workflow passes the matching repository secrets through).
+const adminUser = process.env.SMOKE_ADMIN_USER || 'admin';
+const adminPassword = process.env.SMOKE_ADMIN_PASSWORD || 'admin';
+await check('/admin', { expect: 303, headers: { location: '/admin/login?next=%2Fadmin' } });
+await check('/admin/categories', {
+  expect: 303,
+  headers: { location: '/admin/login?next=%2Fadmin%2Fcategories' },
+});
+await check('/admin/login', { contains: ['Sign in', 'name="username"', 'name="password"'], headers: { 'x-robots-tag': 'noindex' } });
+await check('/admin/login', {
+  init: {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: `username=${encodeURIComponent(adminUser)}&password=definitely-not-it`,
+  },
+  expect: 303,
+  headers: { location: '/admin/login?error=credentials' },
+});
+
+const login = await check('/admin/login', {
+  init: {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: `username=${encodeURIComponent(adminUser)}&password=${encodeURIComponent(adminPassword)}`,
+  },
+  expect: 303,
+  headers: { location: '/admin/categories' },
+});
+const adminCookie = ((login.res && login.res.headers.get('set-cookie')) || '').split(';')[0];
+const admin = { cookie: adminCookie };
+const adminForm = { ...admin, 'content-type': 'application/x-www-form-urlencoded' };
+console.log(`     session cookie: ${adminCookie ? 'set' : '(none)'}`);
+await check('/admin/categories', { init: { headers: admin }, contains: ['Product categories', 'Add a category'] });
+
+// The round trip runs on a hidden row whose name carries a timestamp, so a
+// smoke test against production never collides with a parallel run and never
+// disturbs the public bar.
+const smokeStamp = Date.now();
+const smokeName = `Smoke Test ${smokeStamp}`;
+const smokeSlug = `smoke-test-${smokeStamp}`;
+const smokeBody = `name=${smokeName}&slug=${smokeSlug}&filter_type=all&enabled=0`;
+await check('/admin/categories', {
+  init: { method: 'POST', headers: adminForm, body: smokeBody },
+  expect: 303,
+  headers: { location: '/admin/categories?flash=created' },
+});
+const created = await check('/admin/categories', { init: { headers: admin }, contains: [smokeName] });
+await check('/admin/categories', {
+  init: { method: 'POST', headers: adminForm, body: smokeBody },
+  expect: 303,
+  headers: { location: '/admin/categories?error=duplicate' },
+});
+await check('/admin/categories', {
+  init: { method: 'POST', headers: adminForm, body: 'name=No Slug Here&slug=not a slug' },
+  expect: 303,
+  headers: { location: '/admin/categories?error=slug' },
+});
+await check(`/category/${smokeSlug}`, { expect: 404 }); // hidden from shoppers
+
+const smokeId = (created.body.match(new RegExp(`id="name-(\\d+)"[^>]*value="${smokeName}"`)) || [])[1];
+if (!smokeId) {
+  failures++;
+  console.log('FAIL no id for the smoke test category in the admin list');
+} else {
+  await check('/admin/categories/save', {
+    init: {
+      method: 'POST',
+      headers: adminForm,
+      body: `id=${smokeId}&name=${smokeName}&slug=${smokeSlug}&filter_type=all&enabled=0&position=99`,
+    },
+    expect: 303,
+    headers: { location: '/admin/categories?flash=saved' },
+  });
+  await check('/admin/categories/move', {
+    init: { method: 'POST', headers: adminForm, body: `id=${smokeId}&direction=up` },
+    expect: 303,
+    headers: { location: '/admin/categories?flash=moved' },
+  });
+}
+
+await check('/admin/categories/delete', {
+  init: { method: 'POST', headers: adminForm, body: `slug=${smokeSlug}` },
+  expect: 303,
+  headers: { location: '/admin/categories?flash=deleted' },
+});
+const cleaned = await check('/admin/categories', { init: { headers: admin } });
+if (cleaned.body.includes(smokeName)) {
+  failures++;
+  console.log('FAIL the smoke test category was not deleted');
+}
+
+const logout = await check('/admin/logout', {
+  init: { method: 'POST', headers: adminForm },
+  expect: 303,
+  headers: { location: '/admin/login' },
+});
+const cleared = (logout.res && logout.res.headers.get('set-cookie')) || '';
+if (!cleared.includes('cf_admin=;') || !cleared.includes('Max-Age=0')) {
+  failures++;
+  console.log('FAIL signing out did not clear the session cookie');
+}
+
 /* media --------------------------------------------------------------- */
 const image = (products.body.match(/\/images\/([A-Za-z0-9._-]+)/) || [])[1];
 if (image) {

@@ -79,11 +79,91 @@ for (const setting of settings) {
   if (!setting.key) failures.push('content: setting without a key');
 }
 
+// 4. the top category bar and the admin screens must render
+const [{ categoryBar }, { adminPage, categoriesView, loginView }, { normalizeCategory }] = await Promise.all([
+  import(new URL('src/views/chrome.js', root).href),
+  import(new URL('src/views/admin.js', root).href),
+  import(new URL('src/lib/admin.js', root).href),
+]);
+
+const bar = render(
+  categoryBar(
+    [
+      { name: 'Outdoor Range', href: '/collections/outdoor-range', enabled: true },
+      { name: 'Lighting', href: '/category/lighting', enabled: true },
+    ],
+    '/category/lighting'
+  )
+);
+if (!bar.includes('/collections/outdoor-range') || !bar.includes('Outdoor Range')) {
+  failures.push('views: categoryBar did not render the managed categories');
+}
+if (!bar.includes('aria-current="page"')) failures.push('views: categoryBar did not mark the current category');
+if (render(categoryBar([], '/')) !== '') failures.push('views: categoryBar should render nothing without categories');
+
+const login = render(loginView({ siteName: 'Chen Furniture', error: 'nope', next: '/admin/categories' }));
+if (!login.includes('name="username"') || !login.includes('name="password"')) {
+  failures.push('views: loginView is missing the sign in form');
+}
+
+const admin = render(
+  adminPage({
+    user: 'admin',
+    siteName: 'Chen Furniture',
+    title: 'Product categories',
+    body: categoriesView({
+      list: [
+        {
+          id: 1,
+          slug: 'outdoor-range',
+          name: 'Outdoor Range',
+          url: '',
+          href: '/category/outdoor-range',
+          filterType: 'collection',
+          filterValue: 'outdoor-range',
+          position: 1,
+          enabled: true,
+        },
+      ],
+    }),
+    flash: { kind: 'success', message: 'Category saved.' },
+  })
+);
+const adminMarkup = [
+  'admin-header',
+  'action="/admin/categories"',
+  'action="/admin/categories/save"',
+  'action="/admin/categories/delete"',
+  'action="/admin/categories/move"',
+  '/category/outdoor-range',
+  'Category saved.',
+];
+for (const expected of adminMarkup) {
+  if (!admin.includes(expected)) failures.push(`views: the category admin screen is missing ${expected}`);
+}
+
+// 5. the category form rules behind those screens
+const valid = normalizeCategory({ name: 'Outdoor  Bean Bags', slug: '', url: '', filter_type: 'tag', enabled: '1' });
+if (valid.error) failures.push(`admin: a valid category was rejected (${valid.error})`);
+if (valid.values.slug !== 'outdoor-bean-bags') failures.push(`admin: expected slug outdoor-bean-bags, got ${valid.values.slug}`);
+if (valid.values.filterValue !== 'outdoor-bean-bags') failures.push('admin: an empty filter value should fall back to the slug');
+if (valid.values.position !== null) failures.push('admin: an empty order should keep the current slot');
+if (normalizeCategory({ name: '' }).error !== 'name') failures.push('admin: an empty name should be rejected');
+if (normalizeCategory({ name: 'Lighting', slug: 'Not A Slug' }).error !== 'slug') failures.push('admin: a bad slug should be rejected');
+if (normalizeCategory({ name: 'Lighting', slug: 'lighting', url: 'https://example.com' }).error !== 'url') {
+  failures.push('admin: an external link override should be rejected');
+}
+if (normalizeCategory({ name: 'Lighting', slug: 'lighting', enabled: '0' }).values.enabled !== 0) {
+  failures.push('admin: an unchecked visible switch should save 0');
+}
+
 if (failures.length) {
   console.error(`\n${failures.length} problem(s) found:\n`);
   for (const failure of failures) console.error(` - ${failure}`);
   process.exit(1);
 }
 
-console.log(`All good: ${files.length} modules parsed, ${products.length} products, ${collections.length} collections.`);
+console.log(
+  `All good: ${files.length} modules parsed, ${products.length} products, ${collections.length} collections, admin + category views render.`
+);
 

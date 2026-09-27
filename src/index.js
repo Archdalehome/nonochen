@@ -1,18 +1,37 @@
-import { render } from './lib/html.js';
+import { html, render } from './lib/html.js';
 import {
   addEnquiry,
   addSubscriber,
+  allCategories,
+  categories,
+  categoryBySlug,
+  categorySlugTaken,
   collection,
   collections,
+  createCategory,
+  deleteCategory,
   footerGroups,
+  moveCategory,
   navigation,
   productByHandle,
   productList,
+  productsByCategory,
   relatedProducts,
   searchProducts,
   sections,
   settings as loadSettings,
+  updateCategory,
 } from './lib/db.js';
+import {
+  createSession,
+  credentials,
+  defaultPasswordInUse,
+  destroySession,
+  normalizeCategory,
+  safeNext,
+  sessionUser,
+  verifyLogin,
+} from './lib/admin.js';
 import {
   addItem,
   cartId,
@@ -29,6 +48,7 @@ import { SORTS, collectionIndex, collectionView } from './views/collection.js';
 import { productView } from './views/product.js';
 import { cartPage, checkoutPage, thankYouPage } from './views/cart.js';
 import { contentPage, searchPage } from './views/pages.js';
+import { adminNotFound, adminPage, categoriesView, loginView } from './views/admin.js';
 import { cartDrawerContent } from './views/cart-drawer.js';
 
 /* --------------------------------------------------------------- responses ---- */
@@ -55,6 +75,9 @@ const redirect = (location, extra = {}) => {
   return new Response(null, { status: 303, headers });
 };
 
+const methodNotAllowed = () =>
+  new Response('Method not allowed', { status: 405, headers: { allow: 'GET, POST, HEAD' } });
+
 const notFound = (ctx, message = 'We could not find that page.') =>
   page(
     layout({
@@ -73,17 +96,27 @@ const notFound = (ctx, message = 'We could not find that page.') =>
 
 const currencySymbol = (env) => env.CURRENCY_SYMBOL || '£';
 
-/** Everything the layout needs: settings, nav, footer and the cart. */
+/** Everything the layout needs: settings, nav, footer, cart and the top bar. */
 const chrome = async (request, env) => {
   const db = env.DB;
   const id = cartId(request);
-  const [siteSettings, nav, groups, cart] = await Promise.all([
+  const path = new URL(request.url).pathname.replace(/\/+$/, '') || '/';
+  const [siteSettings, nav, groups, cart, topCategories] = await Promise.all([
     loadSettings(db),
     navigation(db, 'header'),
     footerGroups(db),
     loadCart(db, id),
+    categories(db),
   ]);
-  return { settings: siteSettings, nav, groups, cart, symbol: currencySymbol(env) };
+  return {
+    settings: siteSettings,
+    nav,
+    groups,
+    cart,
+    categories: topCategories,
+    path,
+    symbol: currencySymbol(env),
+  };
 };
 
 const view = (ctx, { title, description, canonical, image, body, bodyClass, status = 200 }) =>
@@ -241,6 +274,196 @@ const collectionRoute = async (request, env, ctx, handle) => {
       sort,
       symbol: ctx.symbol,
     }),
+  });
+};
+
+/* ------------------------------------------------------------ categories ---- */
+
+/**
+ * `/category/<slug>` backs the links in the strip under the announcement bar.
+ * The row picked in /admin decides which products are listed - a collection, a
+ * product tag or everything - so a brand new category needs no code change.
+ */
+const categoryRoute = async (request, env, ctx, slug) => {
+  const url = new URL(request.url);
+  const current = await categoryBySlug(env.DB, slug);
+  // Hidden categories stay reachable for signed in admins so Preview works.
+  if (!current || (!current.enabled && !(await sessionUser(request, env)))) {
+    return notFound(ctx, 'That category is not available.');
+  }
+
+  const sort = SORTS.some((option) => option.value === url.searchParams.get('sort'))
+    ? url.searchParams.get('sort')
+    : 'featured';
+  const list = await productsByCategory(env.DB, current, 120);
+
+  return view(ctx, {
+    title: current.name,
+    description: `Shop ${current.name} at ${ctx.settings.site_name || 'Chen Furniture'}.`,
+    canonical: new URL(`/category/${current.slug}`, request.url).toString(),
+    body: collectionView({
+      collection: { handle: current.slug, title: current.name, subtitle: '', description: '' },
+      products: sortProducts(list, sort),
+      sort,
+      symbol: ctx.symbol,
+    }),
+  });
+};
+
+/* ------------------------------------------------------------------ admin ---- */
+
+const ADMIN_HEADERS = { ...HTML_HEADERS, 'x-robots-tag': 'noindex, nofollow' };
+
+const adminSiteName = (env) => env.SITE_NAME || 'Chen Furniture';
+
+/** `?flash=` / `?error=` values the admin screens can show. */
+const ADMIN_NOTICES = {
+  created: { kind: 'success', message: 'Category added - it is already live in the top bar.' },
+  saved: { kind: 'success', message: 'Category saved.' },
+  moved: { kind: 'success', message: 'Order updated.' },
+  deleted: { kind: 'success', message: 'Category deleted.' },
+  name: { kind: 'danger', message: 'A category needs a name.' },
+  slug: { kind: 'danger', message: 'That slug is not valid - use a-z, 0-9 and dashes (up to 60 characters).' },
+  url: { kind: 'danger', message: 'The link override has to start with "/" (for example /collections/outdoor-range).' },
+  duplicate: { kind: 'danger', message: 'Another category already uses that slug.' },
+  missing: { kind: 'danger', message: 'That category could not be found.' },
+};
+
+const adminNotice = (url) => {
+  const key = url.searchParams.get('error') || url.searchParams.get('flash') || '';
+  return ADMIN_NOTICES[key] || null;
+};
+
+const adminResponse = ({ env, user = '', title, body, status = 200, flash = null }) =>
+  new Response(
+    render(
+      adminPage({
+        user,
+        siteName: adminSiteName(env),
+        title,
+        body,
+        flash,
+        warning: defaultPasswordInUse(env)
+          ? html`The default <code>admin</code> / <code>admin</code> login is still active. To protect this area set your own password with <code>npx wrangler secret put ADMIN_PASSWORD</code>.`
+          : '',
+      })
+    ),
+    { status, headers: ADMIN_HEADERS }
+  );
+
+const adminLoginPage = async (request, env) => {
+  const url = new URL(request.url);
+  if (await sessionUser(request, env)) return redirect(safeNext(url.searchParams.get('next')));
+  const error = url.searchParams.get('error') === 'credentials' ? 'That username and password do not match.' : '';
+  return new Response(
+    render(
+      loginView({
+        siteName: adminSiteName(env),
+        error,
+        next: url.searchParams.has('next') ? safeNext(url.searchParams.get('next'), '') : '',
+      })
+    ),
+    { status: 200, headers: ADMIN_HEADERS }
+  );
+};
+
+const adminLoginSubmit = async (request, env) => {
+  const data = await readForm(request);
+  if (!(await verifyLogin(env, data.username, data.password))) {
+    const next = safeNext(data.next, '');
+    return redirect(`/admin/login?error=credentials${next ? `&next=${encodeURIComponent(next)}` : ''}`);
+  }
+  const headers = await createSession(env, credentials(env).user);
+  headers.set('location', safeNext(data.next));
+  return new Response(null, { status: 303, headers });
+};
+
+const adminLogout = () => {
+  const headers = destroySession();
+  headers.set('location', '/admin/login');
+  return new Response(null, { status: 303, headers });
+};
+
+const adminCategoriesPage = async (request, env, user) => {
+  const list = await allCategories(env.DB);
+  return adminResponse({
+    env,
+    user,
+    title: 'Product categories',
+    body: categoriesView({ list }),
+    flash: adminNotice(new URL(request.url)),
+  });
+};
+
+const adminCategoryCreate = async (request, env) => {
+  const { error, values } = normalizeCategory(await readForm(request));
+  if (error) return redirect(`/admin/categories?error=${error}`);
+  if (await categorySlugTaken(env.DB, values.slug)) return redirect('/admin/categories?error=duplicate');
+  await createCategory(env.DB, values);
+  return redirect('/admin/categories?flash=created');
+};
+
+const adminCategorySave = async (request, env) => {
+  const data = await readForm(request);
+  const id = Number(data.id) || 0;
+  if (!id) return redirect('/admin/categories?error=missing');
+  const { error, values } = normalizeCategory(data);
+  if (error) return redirect(`/admin/categories?error=${error}`);
+  if (await categorySlugTaken(env.DB, values.slug, id)) return redirect('/admin/categories?error=duplicate');
+  await updateCategory(env.DB, id, values);
+  return redirect('/admin/categories?flash=saved');
+};
+
+const adminCategoryDelete = async (request, env) => {
+  const data = await readForm(request);
+  let id = Number(data.id) || 0;
+  if (!id && data.slug) {
+    const found = await categoryBySlug(env.DB, String(data.slug));
+    id = found ? found.id : 0;
+  }
+  if (!id) return redirect('/admin/categories?error=missing');
+  await deleteCategory(env.DB, id);
+  return redirect('/admin/categories?flash=deleted');
+};
+
+const adminCategoryMove = async (request, env) => {
+  const data = await readForm(request);
+  const moved = await moveCategory(env.DB, Number(data.id), data.direction === 'up' ? 'up' : 'down');
+  return redirect(moved ? '/admin/categories?flash=moved' : '/admin/categories?error=missing');
+};
+
+/**
+ * Everything under /admin. Only /admin/login is public; every other screen and
+ * action needs a valid session cookie or bounces back to the login page.
+ */
+const adminRoute = async (request, env, path, method) => {
+  const isGet = method === 'GET' || method === 'HEAD';
+  const isPost = method === 'POST';
+
+  if (path === '/admin/login') {
+    if (isPost) return adminLoginSubmit(request, env);
+    return isGet ? adminLoginPage(request, env) : methodNotAllowed();
+  }
+
+  const user = await sessionUser(request, env);
+  if (!user) return redirect(`/admin/login?next=${encodeURIComponent(path)}`);
+
+  if (path === '/admin') return redirect('/admin/categories');
+  if (path === '/admin/logout' && isPost) return adminLogout();
+  if (path === '/admin/categories') {
+    if (isPost) return adminCategoryCreate(request, env);
+    return isGet ? adminCategoriesPage(request, env, user) : methodNotAllowed();
+  }
+  if (path === '/admin/categories/save') return isPost ? adminCategorySave(request, env) : methodNotAllowed();
+  if (path === '/admin/categories/delete') return isPost ? adminCategoryDelete(request, env) : methodNotAllowed();
+  if (path === '/admin/categories/move') return isPost ? adminCategoryMove(request, env) : methodNotAllowed();
+
+  return adminResponse({
+    env,
+    user,
+    title: 'Not found',
+    body: adminNotFound({ message: `There is no admin screen at ${path}.` }),
+    status: 404,
   });
 };
 
@@ -432,13 +655,26 @@ const imageRoute = async (request, env) => {
 
 const robotsRoute = (request) => {
   const origin = new URL(request.url).origin;
-  const body = ['User-agent: *', 'Allow: /', 'Disallow: /cart', 'Disallow: /checkout', '', `Sitemap: ${origin}/sitemap.xml`, ''].join('\n');
+  const body = [
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /cart',
+    'Disallow: /checkout',
+    'Disallow: /admin',
+    '',
+    `Sitemap: ${origin}/sitemap.xml`,
+    '',
+  ].join('\n');
   return new Response(body, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
 };
 
 const sitemapRoute = async (request, env) => {
   const origin = new URL(request.url).origin;
-  const [list, cols] = await Promise.all([productList(env.DB, { limit: 500 }), collections(env.DB)]);
+  const [list, cols, cats] = await Promise.all([
+    productList(env.DB, { limit: 500 }),
+    collections(env.DB),
+    categories(env.DB),
+  ]);
   const urls = [
     '/',
     '/products',
@@ -446,6 +682,7 @@ const sitemapRoute = async (request, env) => {
     '/cart',
     '/search',
     ...cols.map((item) => `/collections/${item.handle}`),
+    ...cats.filter((item) => item.href.startsWith('/category/')).map((item) => item.href),
     ...list.map((item) => `/products/${item.handle}`),
     '/pages/delivery',
     '/pages/returns',
@@ -474,6 +711,9 @@ const route = async (request, env) => {
   if (path === '/robots.txt') return robotsRoute(request);
   if (path === '/sitemap.xml') return sitemapRoute(request, env);
 
+  // The admin area renders its own chrome and handles its own methods.
+  if (path === '/admin' || path.startsWith('/admin/')) return adminRoute(request, env, path, method);
+
   if (method === 'POST') {
     const ctx = await chrome(request, env);
     switch (path) {
@@ -493,7 +733,7 @@ const route = async (request, env) => {
   }
 
   if (method !== 'GET' && method !== 'HEAD') {
-    return new Response('Method not allowed', { status: 405, headers: { allow: 'GET, POST, HEAD' } });
+    return methodNotAllowed();
   }
 
   const ctx = await chrome(request, env);
@@ -513,6 +753,7 @@ const route = async (request, env) => {
   if (path.startsWith('/products/')) return productRoute(request, env, ctx, segment(path, '/products/'));
   if (path === '/collections') return collectionsRoute(request, env, ctx);
   if (path.startsWith('/collections/')) return collectionRoute(request, env, ctx, segment(path, '/collections/'));
+  if (path.startsWith('/category/')) return categoryRoute(request, env, ctx, segment(path, '/category/'));
   if (path.startsWith('/pages/')) return pageRoute(request, env, ctx, segment(path, '/pages/'));
 
   // Everything that is not a page is a static asset (css, js, images). The

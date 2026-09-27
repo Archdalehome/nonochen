@@ -188,6 +188,15 @@
     });
   });
 
+  /* --------------------------------------------------------------- admin ---- */
+
+  // Destructive admin actions ask first; without JS the form just submits.
+  $$('[data-admin-confirm]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm(form.dataset.adminConfirm)) event.preventDefault();
+    });
+  });
+
   /* ------------------------------------------------------------- tooltips ---- */
 
   if (window.bootstrap && window.bootstrap.Tooltip) {

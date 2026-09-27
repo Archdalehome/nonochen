@@ -13,6 +13,8 @@ export const layout = ({
   nav,
   groups,
   cart,
+  categories = [],
+  path = '',
   symbol = '£',
   title,
   description = '',
@@ -49,7 +51,7 @@ export const layout = ({
     ${jsonLd ? html`<script type="application/ld+json">${safe(JSON.stringify(jsonLd))}</script>` : ''}
   </head>
   <body class="d-flex flex-column min-vh-100 ${bodyClass}">
-    ${header(settings, nav, cart)}
+    ${header(settings, nav, cart, categories, path)}
     <main class="flex-grow-1" id="main">${body}</main>
     ${footer(settings, groups, symbol)}
     ${cartDrawer(settings, cart, symbol)}

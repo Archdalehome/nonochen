@@ -157,6 +157,112 @@ export const collection = async (db, handle) => {
   return all.find((row) => row.handle === handle) || null;
 };
 
+/* ------------------------------------------------------------ categories ---- */
+
+const CATEGORY_COLUMNS = 'id, slug, name, url, filter_type, filter_value, position, enabled';
+
+/** An empty `url` means "link at the built in /category/<slug> page". */
+const hydrateCategory = (row) => ({
+  ...row,
+  enabled: Boolean(row.enabled),
+  filterType: row.filter_type,
+  filterValue: row.filter_value,
+  href: row.url || `/category/${row.slug}`,
+});
+
+/** The categories in the strip under the announcement bar (memoised). */
+export const categories = (db) =>
+  memo('categories', async () => {
+    const { results } = await db
+      .prepare(`SELECT ${CATEGORY_COLUMNS} FROM categories WHERE enabled = 1 ORDER BY position, id`)
+      .all();
+    return (results || []).map(hydrateCategory);
+  });
+
+/** Uncached on purpose: the admin has to see its own writes, disabled rows included. */
+export const allCategories = async (db) => {
+  const { results } = await db.prepare(`SELECT ${CATEGORY_COLUMNS} FROM categories ORDER BY position, id`).all();
+  return (results || []).map(hydrateCategory);
+};
+
+export const categoryBySlug = async (db, slug) => {
+  const row = await db.prepare(`SELECT ${CATEGORY_COLUMNS} FROM categories WHERE slug = ?`).bind(slug).first();
+  return row ? hydrateCategory(row) : null;
+};
+
+export const categorySlugTaken = async (db, slug, exceptId = 0) => {
+  const row = await db
+    .prepare('SELECT id FROM categories WHERE slug = ? AND id != ?')
+    .bind(slug, Number(exceptId) || 0)
+    .first();
+  return Boolean(row);
+};
+
+export const createCategory = async (db, values) => {
+  const next = await db.prepare('SELECT COALESCE(MAX(position), 0) + 1 AS position FROM categories').first();
+  const position = Number.isFinite(values.position) ? values.position : (next && next.position) || 1;
+  await db
+    .prepare(
+      `INSERT INTO categories (slug, name, url, filter_type, filter_value, position, enabled)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+    )
+    .bind(values.slug, values.name, values.url, values.filterType, values.filterValue, position, values.enabled)
+    .run();
+  invalidate('categories');
+};
+
+export const updateCategory = async (db, id, values) => {
+  await db
+    .prepare(
+      `UPDATE categories
+          SET slug = ?1, name = ?2, url = ?3, filter_type = ?4, filter_value = ?5,
+              position = COALESCE(?6, position), enabled = ?7, updated_at = datetime('now')
+        WHERE id = ?8`
+    )
+    .bind(values.slug, values.name, values.url, values.filterType, values.filterValue, values.position, values.enabled, id)
+    .run();
+  invalidate('categories');
+};
+
+export const deleteCategory = async (db, id) => {
+  await db.prepare('DELETE FROM categories WHERE id = ?').bind(id).run();
+  invalidate('categories');
+};
+
+/** Swaps the category with its neighbour and renumbers the whole bar 1..n. */
+export const moveCategory = async (db, id, direction) => {
+  const list = await allCategories(db);
+  const index = list.findIndex((item) => item.id === Number(id));
+  if (index < 0) return false;
+  const target = direction === 'up' ? index - 1 : index + 1;
+  if (target < 0 || target >= list.length) return false;
+
+  const reordered = [...list];
+  const [moved] = reordered.splice(index, 1);
+  reordered.splice(target, 0, moved);
+  await db.batch(
+    reordered.map((item, position) =>
+      db
+        .prepare("UPDATE categories SET position = ?, updated_at = datetime('now') WHERE id = ?")
+        .bind(position + 1, item.id)
+    )
+  );
+  invalidate('categories');
+  return true;
+};
+
+/** The products a /category/<slug> page lists, based on the row's filter. */
+export const productsByCategory = async (db, item, limit = 120) => {
+  if (item.filterType === 'all' || !item.filterValue) return selectProducts(db, { limit });
+  if (item.filterType === 'collection') return productList(db, { collection: item.filterValue, limit });
+  const value = String(item.filterValue).toLowerCase();
+  return selectProducts(db, {
+    where: 'LOWER(p.cat_handle) = ? OR LOWER(p.cat_label) = ?',
+    params: [value, value],
+    limit,
+  });
+};
+
 
 /* --------------------------------------------------------------- products ---- */
 
