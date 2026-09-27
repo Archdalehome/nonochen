@@ -1,0 +1,13 @@
+# Wrangler's local D1/R2/assets state
+.wrangler/
+
+# `npm run setup` mirrors ./images here so /images/* resolves as a static asset
+public/images/
+
+# Scraped reference dumps - disposable, kept out of the repo
+_scratch/
+
+# Run logs left behind by the maintenance scripts
+scripts/*.log
+
+node_modules/
