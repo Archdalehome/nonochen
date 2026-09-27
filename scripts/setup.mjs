@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path';
 import { bindings, imageFiles, migrationFiles, parseArgs, root, wrangler, WRANGLER_BIN } from './wrangler-cli.mjs';
 
 const HELP = `
-Bootstraps assets and D1 (and optionally R2) for the replica.
+Bootstraps assets and D1 (and optionally R2) for the storefront.
 
   node scripts/setup.mjs [--local | --remote] [options]
 

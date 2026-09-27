@@ -131,6 +131,7 @@ export function parseArgs(argv, { target = 'local' } = {}) {
     concurrency: 6,
     retries: 3,
     dbOnly: false,
+    skipDb: false,
     mediaOnly: false,
     withMedia: false,
     skipCopy: false,
@@ -142,6 +143,7 @@ export function parseArgs(argv, { target = 'local' } = {}) {
     else if (arg === '--local') args.target = 'local';
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--db-only') args.dbOnly = true;
+    else if (arg === '--skip-db') args.skipDb = true;
     else if (arg === '--media-only') args.mediaOnly = true;
     else if (arg === '--with-media') args.withMedia = true;
     else if (arg === '--skip-copy') args.skipCopy = true;
