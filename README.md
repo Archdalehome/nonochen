@@ -106,8 +106,13 @@ can also be started by hand from the Actions tab (or `gh workflow run deploy.yml
    runs `scripts/smoke.mjs` against it: home, `/products`, a product page,
    `/collections`, `/cart`, `/cart/drawer`, `/search`, `sitemap.xml`,
    `robots.txt`, the CSS/JS assets and `/images/*` all have to answer, the cart
-   round trip has to work against the real D1, and `/wrangler.jsonc`,
-   `/src/...`, `/migrations/...` have to keep returning 404;
+   round trip has to work against the real D1, the category strip has to render
+   directly under the announcement bar and follow one of its links, and the
+   admin area has to sign in with `SMOKE_ADMIN_USER` / `SMOKE_ADMIN_PASSWORD`,
+   add a hidden `smoke-<timestamp>` category, reject a duplicate slug and a bad
+   slug, edit it, move it, delete it again and sign out - all against the live
+   D1 (`/wrangler.jsonc`, `/src/...`, `/migrations/...` have to keep returning
+   404 as well);
 5. if the push touched `images/`, `npm run media:remote` syncs the bucket (a push
    that only changes code skips it);
 6. the Wrangler log is uploaded as a build artifact when a deploy fails.
@@ -155,7 +160,14 @@ Each row controls:
 Edits are written to the D1 `categories` table (created and seeded by
 `migrations/0005_categories.sql`) and appear straight away: the storefront
 memoises the bar for 30 seconds per Worker isolate and the admin invalidates it
-on every write.
+on every write. Only `position` is compared, so deleting a row can leave a gap
+(the seeded ten may read 1..9, 11 after the deploy smoke test has created and
+removed its own row) - the admin list and the storefront show the same order
+either way.
+
+The migration is idempotent (`create table if not exists`, `insert or ignore`),
+so applying it twice - for example once by hand and once by the pipeline - is
+harmless.
 
 ### Changing the password
 
