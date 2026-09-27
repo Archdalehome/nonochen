@@ -1,0 +1,16 @@
+# Text files get LF on every platform; the scraped media stays byte-for-byte.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.gif binary
+*.ico binary
+*.mp4 binary
+*.mov binary
+*.webm binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

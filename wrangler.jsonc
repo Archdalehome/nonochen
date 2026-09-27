@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "extreme-lounging",
+  "main": "src/index.js",
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "el_store",
+      // `wrangler d1 create el_store` on the chenfurnitureco@gmail.com account.
+      "database_id": "ddcc120e-87bc-408a-bbc4-9d2c7f36569a",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "el-media"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "SITE_NAME": "Extreme Lounging",
+    "CURRENCY": "GBP",
+    "CURRENCY_SYMBOL": "£"
+  }
+}

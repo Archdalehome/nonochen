@@ -1,0 +1,23 @@
+{
+  "name": "extreme-lounging-clone",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Workers replica of extremelounging.com (home, product detail, cart) backed by D1 + R2",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "setup": "node scripts/setup.mjs",
+    "seed:build": "node scripts/build-seed.mjs",
+    "db:local": "node scripts/setup.mjs --db-only",
+    "db:remote": "node scripts/setup.mjs --remote --db-only",
+    "media:local": "node scripts/upload-media.mjs --local",
+    "media:remote": "node scripts/upload-media.mjs --remote",
+    "media:fetch": "node scripts/fetch-media.mjs",
+    "check": "node scripts/check.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.20.0"
+  }
+}
