@@ -19,7 +19,7 @@ migrations and tagged-template views.
 | data | D1 `el_store`, created by `migrations/0001_schema.sql` + `0002_seed.sql` (+ `0003_cart_items_detail.sql`, `0004_rebrand.sql`) |
 | media | R2 `el-media` bound as `MEDIA`; `/images/*` streams the object with an `immutable` cache header and falls back to the mirrored copy in `public/images` |
 | assets | `public/` (`css/site.css`, `js/site.js`, `images/`) served by the assets binding with `run_worker_first`, so dynamic routes always win |
-| tooling | Node 18+ and Wrangler 4 (the only devDependency) |
+| tooling | Node 22+ (Wrangler 4 refuses to run on less) and Wrangler 4 (the only devDependency) |
 
 ## First run
 

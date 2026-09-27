@@ -2,6 +2,9 @@
   "name": "chen-furniture-store",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "description": "Chen Furniture storefront on Cloudflare Workers (home, product detail, cart) backed by D1 + R2",
   "type": "module",
   "scripts": {
