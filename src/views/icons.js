@@ -36,6 +36,6 @@ export const icons = {
 
 export const svgLogo = (className = '', size = 48) =>
   safe(
-    `<img src="/images/logo.svg" width="${size}" height="${size}" alt="Extreme Lounging" class="${className}" loading="eager">`
+    `<img src="/images/logo.svg" width="${size}" height="${size}" alt="Chen Furniture" class="${className}" loading="eager">`
   );
 

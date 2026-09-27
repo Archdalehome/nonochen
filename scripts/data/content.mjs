@@ -1,5 +1,5 @@
 /**
- * Hand authored content for the Extreme Lounging replica.
+ * Hand authored content for the Chen Furniture storefront.
  * `npm run seed:build` turns this into migrations/0002_seed.sql, which is what
  * actually creates the rows in Cloudflare D1. Anything in here can afterwards be
  * edited from the running site through the /api/admin/* endpoints.
@@ -9,7 +9,7 @@
  */
 
 export const settings = [
-  { key: 'site_name', value: 'Extreme Lounging', group: 'brand' },
+  { key: 'site_name', value: 'Chen Furniture', group: 'brand' },
   { key: 'brand_line', value: 'Premium bean bags and furniture crafted for ultimate comfort and effortless style, indoors and out.', group: 'brand' },
   {
     key: 'announcement_text',
@@ -45,11 +45,13 @@ export const settings = [
   { key: 'footer_company_heading', value: 'Company', group: 'footer' },
   { key: 'footer_help_heading', value: 'Help', group: 'footer' },
   { key: 'footer_location_heading', value: 'Location', group: 'footer' },
-  { key: 'footer_copyright', value: '© 2026 Extreme Lounging | All Rights Reserved', group: 'footer' },
-  { key: 'footer_credit', value: 'Website created by Prosper Online', group: 'footer' },
-  { key: 'footer_credit_url', value: 'https://prosperonline.uk', group: 'footer' },
-  { key: 'social_facebook', value: 'https://www.facebook.com/extremelounging', group: 'footer' },
-  { key: 'social_instagram', value: 'https://www.instagram.com/extremelounging/', group: 'footer' },
+  { key: 'footer_copyright', value: '© 2026 Chen Furniture | All Rights Reserved', group: 'footer' },
+  // Empty values hide those bits of the footer, so nothing is published until you
+  // have your own handle for them.
+  { key: 'footer_credit', value: '', group: 'footer' },
+  { key: 'footer_credit_url', value: '', group: 'footer' },
+  { key: 'social_facebook', value: '', group: 'footer' },
+  { key: 'social_instagram', value: '', group: 'footer' },
   { key: 'search_title', value: 'Search', group: 'header' },
   { key: 'ship_accordion_title', value: 'Shipping & Returns', group: 'product' },
   {
@@ -198,8 +200,7 @@ export const menu = {
       heading: 'Company',
       links: [
         ['Shop', '/'],
-        ['Email Us', 'mailto:customerservice@extremelounging.com'],
-        ['Call Us', 'tel:01535692373'],
+        ['Email Us', 'mailto:customerservice@chenfurniture.com'],
         ['Contact Details', '/pages/contact-details'],
         ['Store Locator', '/pages/store-locator'],
       ],
@@ -345,7 +346,7 @@ export const sections = [
     position: 1,
     data: {
       title: 'Returns',
-      body: '<p>There are some circumstances where you may wish to return the products that you have ordered from us and this policy explains when and how you can do this.</p><p>If you change your mind about the products you have ordered, you may cancel your order at any time within 14 days of receiving the products. Please contact customerservice@extremelounging.com with your order number and we will arrange collection or advise how to return the goods.</p>',
+      body: '<p>There are some circumstances where you may wish to return the products that you have ordered from us and this policy explains when and how you can do this.</p><p>If you change your mind about the products you have ordered, you may cancel your order at any time within 14 days of receiving the products. Please contact customerservice@chenfurniture.com with your order number and we will arrange collection or advise how to return the goods.</p>',
     },
   },
   {
@@ -355,7 +356,7 @@ export const sections = [
     position: 1,
     data: {
       title: 'Privacy Policy',
-      body: '<p>We only collect the information we need to process your order and to keep you up to date with news from Extreme Lounging. We never sell your data.</p><p>If you join our newsletter you can unsubscribe at any time using the link at the bottom of every email, or by contacting customerservice@extremelounging.com.</p>',
+      body: '<p>We only collect the information we need to process your order and to keep you up to date with news from Chen Furniture. We never sell your data.</p><p>If you join our newsletter you can unsubscribe at any time using the link at the bottom of every email, or by contacting customerservice@chenfurniture.com.</p>',
     },
   },
   {
@@ -365,7 +366,7 @@ export const sections = [
     position: 1,
     data: {
       title: 'Terms & Conditions',
-      body: '<p>By placing an order with Extreme Lounging you agree to these terms. All prices are shown in GBP and include VAT where applicable.</p><p>Products remain the property of Extreme Lounging until full payment has been received. Nothing in these terms affects your statutory rights.</p>',
+      body: '<p>By placing an order with Chen Furniture you agree to these terms. All prices are shown in GBP and include VAT where applicable.</p><p>Products remain the property of Chen Furniture until full payment has been received. Nothing in these terms affects your statutory rights.</p>',
     },
   },
   {
@@ -375,7 +376,7 @@ export const sections = [
     position: 1,
     data: {
       title: 'Contact Details',
-      body: '<p>Customer Service: <a href="mailto:customerservice@extremelounging.com">customerservice@extremelounging.com</a></p><p>Telephone: <a href="tel:01535692373">01535 692373</a></p><p>Extreme Lounging, Unit 5, Keighley Business Centre, Keighley, West Yorkshire, BD21 1SY</p>',
+      body: '<p>Customer Service: <a href="mailto:customerservice@chenfurniture.com">customerservice@chenfurniture.com</a></p><p>We aim to reply within one working day, Monday to Friday.</p>',
     },
   },
   {
@@ -385,7 +386,7 @@ export const sections = [
     position: 1,
     data: {
       title: 'Store Locator',
-      body: '<p>Prefer to try before you buy? Our bean bags are stocked by a growing list of independent retailers across the UK and Ireland.</p><p>Email customerservice@extremelounging.com and we will point you to your nearest stockist.</p>',
+      body: '<p>Prefer to try before you buy? Our bean bags are stocked by a growing list of independent retailers across the UK and Ireland.</p><p>Email customerservice@chenfurniture.com and we will point you to your nearest stockist.</p>',
     },
   },
 ];
@@ -398,7 +399,7 @@ export const defaultFeatures = [
   { name: 'UV Resistant', text: 'UV Resistant Material is fade resistant, even in direct sunlight. *In extreme weather, we recommend covering or sheltering the product.', icon: '/images/usp-uv-resistant.svg' },
   { name: 'Indoor/Outdoor', text: 'Indoor/outdoor materials offer usage anytime, any place', icon: '/images/usp-indoor-outdoor.svg' },
   { name: 'Breathable Vents', text: 'Breathable vents release air rapidly to maintain the flexibility needed to take your shape quickly without putting pressure on seams', icon: '/images/usp-breathable-vents.svg' },
-  { name: 'Made in the UK', text: 'Every aspect of our B-products are designed and made in the UK to guarantee material quality and excellent craftsmanship. Based in Yorkshire, Extreme Lounging strongly believe that the best products are British through and through.', icon: '/images/usp-made-in-uk.svg' },
+  { name: 'Made in the UK', text: 'Every aspect of our B-products are designed and made in the UK to guarantee material quality and excellent craftsmanship. Based in Yorkshire, Chen Furniture strongly believe that the best products are British through and through.', icon: '/images/usp-made-in-uk.svg' },
 ];
 
 /** The one line trust bullets shown under the PDP buy button. */

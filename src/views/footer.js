@@ -18,7 +18,7 @@ export const footer = (settings, groups, symbol = '£') => html`
           <div class="d-flex flex-column text-secondary">
             <div class="row mb-3 mb-md-4">
               <div class="col-12 col-md-8 fs-7">
-                <img src="/images/logo-footer.png" alt="Extreme Lounging" width="600" height="60" class="mb-3 w-75 d-block h-auto" loading="lazy">
+                <span class="footer-brand heading-font d-block mb-3">${settings.site_name || 'Chen Furniture'}</span>
                 ${settings.brand_line}
               </div>
             </div>
@@ -88,7 +88,11 @@ export const footer = (settings, groups, symbol = '£') => html`
           <p class="mb-0 text-center py-1 px-0 fs-7 d-flex justify-content-center justify-content-md-between flex-wrap flex-md-nowrap">
             <small>${settings.footer_copyright}</small>
             <small class="d-md-none mx-1">|</small>
-            <small>Website created by <a href="${settings.footer_credit_url}" target="_blank" rel="noopener">Prosper Online</a></small>
+            ${settings.footer_credit
+              ? html`<small>${settings.footer_credit}${settings.footer_credit_url
+                  ? html` <a href="${settings.footer_credit_url}" target="_blank" rel="noopener">${settings.footer_credit_url.replace(/^https?:\/\//, '')}</a>`
+                  : ''}</small>`
+              : ''}
           </p>
         </div>
       </div>

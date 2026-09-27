@@ -116,7 +116,7 @@ const addProduct = (p, sortOrder, inGrid) => {
     p.badge === 'NEW' ? 1 : 0,
     inGrid ? 1 : 0,
     sortOrder,
-    q(`${p.title} | Extreme Lounging`),
+    q(`${p.title} | Chen Furniture`),
     q(p.summary || ''),
   ]);
 

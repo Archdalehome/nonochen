@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "extreme-lounging",
+  "name": "chen-furniture",
   "main": "src/index.js",
   "compatibility_date": "2025-06-01",
   "assets": {
@@ -27,7 +27,7 @@
     "enabled": true
   },
   "vars": {
-    "SITE_NAME": "Extreme Lounging",
+    "SITE_NAME": "Chen Furniture",
     "CURRENCY": "GBP",
     "CURRENCY_SYMBOL": "£"
   }

@@ -1,7 +1,7 @@
 -- =============================================================================
---  Extreme Lounging replica - D1 schema (Cloudflare D1 / SQLite)
---  Every piece of site copy that the original Shopify theme renders is stored
---  here so it can be edited from the admin API without touching code.
+--  Chen Furniture - D1 schema (Cloudflare D1 / SQLite)
+--  Every piece of site copy the storefront renders is stored here so it can be
+--  edited in D1 (dashboard console or `wrangler d1 execute`) without touching code.
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS settings (

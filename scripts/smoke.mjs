@@ -43,7 +43,7 @@ const check = async (path, { init, expect = 200, contains = [], type: wantType, 
 console.log(`smoke testing ${base}\n`);
 
 /* pages ------------------------------------------------------------------ */
-await check('/', { contains: ['Extreme Lounging', '/css/site.css', '/js/site.js', 'cart--offcanvas'] });
+await check('/', { contains: ['Chen Furniture', '/css/site.css', '/js/site.js', 'cart--offcanvas'] });
 await check('/products', { contains: ['/products/'] });
 await check('/collections', { contains: ['/collections/'] });
 await check('/cart', { contains: ['Your Cart'] });
@@ -57,7 +57,7 @@ await check('/robots.txt', { contains: ['Sitemap:'], type: 'text/plain' });
 await check('/sitemap.xml', { contains: ['<urlset', '/products/'], type: 'xml' });
 
 /* static assets ---------------------------------------------------------- */
-await check('/css/site.css', { type: 'text/css', contains: ['--el-black'] });
+await check('/css/site.css', { type: 'text/css', contains: ['--cf-black'] });
 await check('/js/site.js', { type: 'javascript' });
 await check('/wrangler.jsonc', { expect: 404 });
 await check('/package.json', { expect: 404 });

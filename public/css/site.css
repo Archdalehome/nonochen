@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Extreme Lounging - site.css
+   Chen Furniture - site.css
    --------------------------------------------------------------------------
    Bootstrap 5.3 carries the layout (grid, spacing, offcanvas, accordion,
    carousel).  This file is the brand layer that sits on top of it: design
@@ -12,12 +12,12 @@
 
 :root {
   /* Brand palette (scraped from the live theme). */
-  --el-black: #18181b;
-  --el-secondary: #e4e4e7;
-  --el-surface: #f5f5f5;
-  --el-footer-bg: #fafafb;
-  --el-muted: rgba(24, 24, 27, .75);
-  --el-muted-soft: rgba(24, 24, 27, .5);
+  --cf-black: #18181b;
+  --cf-secondary: #e4e4e7;
+  --cf-surface: #f5f5f5;
+  --cf-footer-bg: #fafafb;
+  --cf-muted: rgba(24, 24, 27, .75);
+  --cf-muted-soft: rgba(24, 24, 27, .5);
 
   /* Families: Typekit first, sensible fallbacks after it. */
   --bs-body-font-family: myriad-pro, "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -126,8 +126,17 @@ a:hover { color: var(--bs-link-hover-color); }
 }
 
 /* Surfaces reused across the footer, product tiles and banners. */
-.bg-footer { background-color: var(--el-footer-bg); }
-.bg-product-image-colour { background-color: var(--el-surface); }
+.bg-footer { background-color: var(--cf-footer-bg); }
+
+/* Text wordmark in the footer - replaces the old bitmap logo. */
+.footer-brand {
+  color: var(--bs-heading-color);
+  font-size: clamp(1.6rem, 3.4vw, 2.35rem);
+  font-weight: 600;
+  letter-spacing: .01em;
+  line-height: 1.1;
+}
+.bg-product-image-colour { background-color: var(--cf-surface); }
 
 .img-square {
   display: block;
@@ -223,7 +232,7 @@ a:hover { color: var(--bs-link-hover-color); }
 .form-control,
 .form-select {
   padding: .75rem 1.5rem;
-  color: var(--el-black);
+  color: var(--cf-black);
   border: .0625rem solid rgba(231, 234, 243, .9);
   border-radius: 0;
   background-color: #fff;
@@ -234,14 +243,14 @@ a:hover { color: var(--bs-link-hover-color); }
 
 .form-control:focus,
 .form-select:focus {
-  border-color: var(--el-black);
+  border-color: var(--cf-black);
   box-shadow: 0 0 0 .2rem rgba(24, 24, 27, .12);
 }
 
-.form-control::placeholder { color: var(--el-muted-soft); opacity: 1; }
-.form-check-input:checked { background-color: var(--el-black); border-color: var(--el-black); }
-.form-check-input:focus { border-color: var(--el-black); box-shadow: 0 0 0 .2rem rgba(24, 24, 27, .15); }
-.form-label { color: var(--el-muted); letter-spacing: .04em; }
+.form-control::placeholder { color: var(--cf-muted-soft); opacity: 1; }
+.form-check-input:checked { background-color: var(--cf-black); border-color: var(--cf-black); }
+.form-check-input:focus { border-color: var(--cf-black); box-shadow: 0 0 0 .2rem rgba(24, 24, 27, .15); }
+.form-label { color: var(--cf-muted); letter-spacing: .04em; }
 
 /* ------------------------------------------------------------- site header -- */
 
@@ -292,7 +301,7 @@ a:hover { color: var(--bs-link-hover-color); }
   text-decoration: none;
 }
 
-.navbar-nav .nav-link { color: var(--el-black); }
+.navbar-nav .nav-link { color: var(--cf-black); }
 .navbar-nav .nav-link:hover,
 .navbar-nav .nav-link:focus { color: rgba(24, 24, 27, .65); }
 
@@ -315,7 +324,7 @@ a:hover { color: var(--bs-link-hover-color); }
   width: 100%;
   margin: 0;
   border-radius: 0;
-  border-top: 1px solid var(--el-black) !important;
+  border-top: 1px solid var(--cf-black) !important;
   box-shadow: 0 1.5rem 2rem -.75rem rgba(24, 24, 27, .12);
 }
 
@@ -348,8 +357,8 @@ a:hover { color: var(--bs-link-hover-color); }
 
 .accordion { --bs-accordion-border-color: var(--bs-border-color); }
 .accordion-item { background-color: transparent; }
-.accordion-button { color: var(--el-black); }
-.accordion-button:not(.collapsed) { color: var(--el-black); background-color: transparent; }
+.accordion-button { color: var(--cf-black); }
+.accordion-button:not(.collapsed) { color: var(--cf-black); background-color: transparent; }
 .accordion-button:focus { box-shadow: none; border-color: transparent; }
 .accordion-flush > .accordion-item:last-child { border-bottom: 0; }
 .accordion-body { padding: 1rem 0; }
@@ -375,7 +384,7 @@ a:hover { color: var(--bs-link-hover-color); }
   font-size: .7rem;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: var(--el-muted-soft);
+  color: var(--cf-muted-soft);
   margin-right: .3rem;
 }
 
@@ -402,7 +411,7 @@ a:hover { color: var(--bs-link-hover-color); }
 }
 
 .colour-swatch--button:hover { box-shadow: 0 0 0 1px rgba(24, 24, 27, .45); }
-.colour-swatch--button.is-active { box-shadow: 0 0 0 1px #fff, 0 0 0 3px var(--el-black); }
+.colour-swatch--button.is-active { box-shadow: 0 0 0 1px #fff, 0 0 0 3px var(--cf-black); }
 
 .colour-swatch--more {
   display: inline-flex;
@@ -410,8 +419,8 @@ a:hover { color: var(--bs-link-hover-color); }
   justify-content: center;
   width: 20px;
   height: 20px;
-  background-color: var(--el-surface);
-  color: var(--el-muted);
+  background-color: var(--cf-surface);
+  color: var(--cf-muted);
   font-size: .6rem;
   line-height: 1;
   box-shadow: none;
@@ -424,10 +433,10 @@ a:hover { color: var(--bs-link-hover-color); }
   transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
 }
 
-.variant-option:hover { border-color: var(--el-black) !important; }
+.variant-option:hover { border-color: var(--cf-black) !important; }
 .variant-option.is-active {
-  border-color: var(--el-black) !important;
-  box-shadow: inset 0 0 0 1px var(--el-black);
+  border-color: var(--cf-black) !important;
+  box-shadow: inset 0 0 0 1px var(--cf-black);
 }
 .variant-option.is-disabled { opacity: .45; cursor: not-allowed; }
 .variant-option .form-check-input { flex-shrink: 0; }
@@ -440,8 +449,8 @@ a:hover { color: var(--bs-link-hover-color); }
   border-color: var(--bs-border-color) !important;
 }
 
-.qty-stepper .btn { color: var(--el-black); line-height: 1; border-radius: 0; }
-.qty-stepper .btn:hover { background-color: var(--el-surface); }
+.qty-stepper .btn { color: var(--cf-black); line-height: 1; border-radius: 0; }
+.qty-stepper .btn:hover { background-color: var(--cf-surface); }
 .qty-stepper .form-control {
   min-height: 0;
   background-color: transparent;
@@ -458,18 +467,18 @@ a:hover { color: var(--bs-link-hover-color); }
 
 /* ------------------------------------------------------------------- ribbon -- */
 
-.usp-ribbon { color: var(--el-muted); }
-.usp-ribbon svg { color: var(--el-black); }
+.usp-ribbon { color: var(--cf-muted); }
+.usp-ribbon svg { color: var(--cf-black); }
 
 /* ---------------------------------------------------------------- hero / carousel -- */
 
-.hero-carousel { background-color: var(--el-surface); }
+.hero-carousel { background-color: var(--cf-surface); }
 
 .hero-slide {
   position: relative;
   height: clamp(22rem, 56vw, 44rem);
   overflow: hidden;
-  background-color: var(--el-surface);
+  background-color: var(--cf-surface);
 }
 
 .hero-media {
@@ -503,7 +512,7 @@ a:hover { color: var(--bs-link-hover-color); }
 /* ------------------------------------------------------------- product rows -- */
 
 .product-row .js-collection-picker {
-  color: var(--el-muted-soft);
+  color: var(--cf-muted-soft);
   border-bottom: 2px solid transparent;
   border-radius: 0;
   text-decoration: none;
@@ -513,9 +522,9 @@ a:hover { color: var(--bs-link-hover-color); }
   transition: color .15s ease-in-out, border-color .15s ease-in-out;
 }
 
-.product-row .js-collection-picker:hover { color: var(--el-black); border-bottom-color: rgba(24, 24, 27, .3); }
-.product-row .js-collection-picker.active { color: var(--el-black); border-bottom-color: var(--el-black); }
-.product-row .js-collection-picker.inactive { color: var(--el-muted-soft); }
+.product-row .js-collection-picker:hover { color: var(--cf-black); border-bottom-color: rgba(24, 24, 27, .3); }
+.product-row .js-collection-picker.active { color: var(--cf-black); border-bottom-color: var(--cf-black); }
+.product-row .js-collection-picker.inactive { color: var(--cf-muted-soft); }
 
 .scrolling-row {
   scroll-snap-type: x mandatory;
@@ -532,7 +541,7 @@ a:hover { color: var(--bs-link-hover-color); }
 
 /* ---------------------------------------------------------------- link grid -- */
 
-.link-grid__tile { overflow: hidden; background-color: var(--el-surface); }
+.link-grid__tile { overflow: hidden; background-color: var(--cf-surface); }
 .link-grid__image { transition: transform .5s ease; }
 .link-grid__tile:hover .link-grid__image { transform: scale(1.03); }
 .link-grid__label { z-index: 2; }
@@ -563,7 +572,7 @@ a:hover { color: var(--bs-link-hover-color); }
 }
 
 .masonry__cell { grid-column: span 12; }
-.masonry__tile { overflow: hidden; background-color: var(--el-surface); }
+.masonry__tile { overflow: hidden; background-color: var(--cf-surface); }
 .masonry__image { height: 100%; transition: transform .5s ease; }
 .masonry__tile:hover .masonry__image { transform: scale(1.03); }
 .masonry__tile span { z-index: 2; text-shadow: 0 1px 1.5rem rgba(0, 0, 0, .35); }
@@ -598,7 +607,7 @@ a:hover { color: var(--bs-link-hover-color); }
 
 .product-page .product-gallery img,
 .product-page .product-gallery video {
-  background-color: var(--el-surface);
+  background-color: var(--cf-surface);
   aspect-ratio: 1 / 1;
   width: 100%;
   height: 100%;
@@ -612,7 +621,7 @@ a:hover { color: var(--bs-link-hover-color); }
 .product-info legend { font-size: .75rem; letter-spacing: .06em; }
 .product-info .product-form fieldset + fieldset { margin-top: 0; }
 
-.product-story img { background-color: var(--el-surface); }
+.product-story img { background-color: var(--cf-surface); }
 .product-story .section-heading { margin-bottom: 1.25rem; }
 
 .product-related { border-top: 1px solid var(--bs-border-color); }
@@ -632,9 +641,9 @@ a:hover { color: var(--bs-link-hover-color); }
 
 /* ---------------------------------------------------------------- breadcrumbs -- */
 
-.breadcrumb { --bs-breadcrumb-divider-color: rgba(24, 24, 27, .4); --bs-breadcrumb-item-active-color: var(--el-black); }
+.breadcrumb { --bs-breadcrumb-divider-color: rgba(24, 24, 27, .4); --bs-breadcrumb-item-active-color: var(--cf-black); }
 .breadcrumb-item + .breadcrumb-item::before { content: "/"; }
-.breadcrumb a:hover { color: var(--el-black); text-decoration: underline; }
+.breadcrumb a:hover { color: var(--cf-black); text-decoration: underline; }
 
 /* ------------------------------------------------------------------ section head -- */
 
@@ -702,7 +711,7 @@ body > footer small { font-size: .75rem; }
 /* ---------------------------------------------------------------- feedback -- */
 
 #site-toasts { z-index: 1080; }
-.text-decoration-line-through { color: var(--el-muted-soft); }
+.text-decoration-line-through { color: var(--cf-muted-soft); }
 
 /* ------------------------------------------------------ motion / print -- */
 

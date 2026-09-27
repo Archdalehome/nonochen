@@ -22,7 +22,7 @@ export const layout = ({
   bodyClass = '',
   jsonLd = null,
 }) => {
-  const siteName = settings.site_name || 'Extreme Lounging';
+  const siteName = settings.site_name || 'Chen Furniture';
   const fullTitle = title ? `${title} | ${siteName}` : siteName;
   const metaDescription = description || settings.brand_line || '';
 

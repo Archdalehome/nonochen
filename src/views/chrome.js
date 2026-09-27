@@ -128,7 +128,7 @@ export const header = (settings, nav, cart) => html`
             </div>
             <div class="d-flex">
               <div class="navbar-item">
-                <a href="/" class="navbar-brand nav-link p-0 d-flex align-items-center h-100 me-2 me-lg-4" aria-label="Extreme Lounging home">
+                <a href="/" class="navbar-brand nav-link p-0 d-flex align-items-center h-100 me-2 me-lg-4" aria-label="Chen Furniture home">
                   ${svgLogo('header__heading-logo', 48)}
                 </a>
               </div>

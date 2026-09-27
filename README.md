@@ -1,13 +1,13 @@
-# Extreme Lounging - Cloudflare Workers replica
+# Chen Furniture - Cloudflare Workers storefront
 
-A from-scratch Cloudflare Workers implementation of the extremelounging.com
-storefront: server-rendered HTML views, D1 for the catalogue + carts, R2 (with a
-static-asset fallback) for the product imagery. No framework, no bundler step -
-just `wrangler.jsonc`, SQL migrations and tagged-template views.
+A from-scratch Cloudflare Workers storefront for Chen Furniture: server-rendered
+HTML views, D1 for the catalogue + carts, R2 (with a static-asset fallback) for
+the product imagery. No framework, no bundler step - just `wrangler.jsonc`, SQL
+migrations and tagged-template views.
 
-> The copy, photography and trademarks belong to Extreme Lounging Ltd. This is a
-> technical exercise (local `wrangler dev`, optional throwaway deploy), not a
-> production storefront to point customers at.
+> The demo catalogue, copy and photography were captured from a public storefront
+> and stay the property of their original owner. Treat this as a technical
+> exercise rather than a production shop to point customers at.
 
 ## Stack
 
@@ -16,7 +16,7 @@ just `wrangler.jsonc`, SQL migrations and tagged-template views.
 | runtime | Workers module syntax, built-in `fetch` only, no dependencies at runtime |
 | routes | `src/index.js` - pages, `/cart/*`, `/checkout`, `/search`, `/sitemap.xml`, `/robots.txt`, `/images/*` |
 | views | `src/views/*.js` tagged-template helpers (`src/lib/html.js`) |
-| data | D1 `el_store`, created by `migrations/0001_schema.sql` + `0002_seed.sql` (+ `0003_cart_items_detail.sql`) |
+| data | D1 `el_store`, created by `migrations/0001_schema.sql` + `0002_seed.sql` (+ `0003_cart_items_detail.sql`, `0004_rebrand.sql`) |
 | media | R2 `el-media` bound as `MEDIA`; `/images/*` streams the object with an `immutable` cache header and falls back to the mirrored copy in `public/images` |
 | assets | `public/` (`css/site.css`, `js/site.js`, `images/`) served by the assets binding with `run_worker_first`, so dynamic routes always win |
 | tooling | Node 18+ and Wrangler 4 (the only devDependency) |
@@ -38,7 +38,7 @@ npm run check                # syntax-check every module, render views against t
 ```
 
 `npm run smoke` takes an optional base URL, so the same script verifies the
-deployed Worker: `npm run smoke -- https://extreme-lounging.<subdomain>.workers.dev`.
+deployed Worker: `npm run smoke -- https://chen-furniture.<subdomain>.workers.dev`.
 `_scratch/` holds the scraped reference dumps the views were authored from and is
 git-ignored.
 
@@ -50,7 +50,7 @@ git-ignored.
 | `npm run setup` | `scripts/setup.mjs` - mirror `./images` + `d1 migrations apply` |
 | `npm run db:local` / `db:remote` | migrations only |
 | `npm run media:local` / `media:remote` | upload `./images` to the `MEDIA` bucket |
-| `npm run media:fetch` | re-download `./images` from the original CDN (manifest: `scripts/data/media.json`) |
+| `npm run media:fetch` | re-download `./images` from the storefront they came from: `npm run media:fetch -- --origin https://example.com` (manifest: `scripts/data/media.json`, which keeps paths only) |
 | `npm run seed:build` | regenerate `migrations/0002_seed.sql` from `scripts/data/*` |
 | `npm run check` | local sanity check (parse + render) |
 | `npm run smoke` | HTTP smoke test against `wrangler dev` or a deployment |
@@ -75,10 +75,10 @@ npx wrangler d1 create el_store         # only on a fresh account - copy the id 
 npx wrangler r2 bucket create el-media  # only on a fresh account
 node scripts/setup.mjs --remote --with-media   # migrate D1 + push ./images to R2
 npx wrangler deploy --dry-run           # inspect the bundle without publishing
-npm run deploy                          # publishes extreme-lounging.<subdomain>.workers.dev
+npm run deploy                          # publishes chen-furniture.<subdomain>.workers.dev
 ```
 
-`npm run deploy` publishes scraped content to a public URL, so committing to
+`npm run deploy` publishes the demo catalogue to a public URL, so committing to
 `main` (see below) is the intended way to release.
 
 Two things to know when switching accounts:
@@ -95,23 +95,32 @@ Two things to know when switching accounts:
 can also be started by hand from the Actions tab (or `gh workflow run deploy.yml`):
 
 1. `npm ci` then `npm run check` - nothing ships if a view stops parsing or rendering;
-2. `node scripts/setup.mjs --remote --db-only` - mirrors `./images` into `public/`
-   for the assets binding and applies any new `migrations/*.sql` to the remote D1;
-3. `npm run deploy` - uploads the Worker, captures the `*.workers.dev` URL and
+2. `node scripts/setup.mjs --skip-db` - mirrors `./images` into `public/` so the
+   assets binding always carries the local copies;
+3. `npx wrangler d1 migrations list <db> --remote` probes whether the token may
+   talk to D1 at all. If it may, `node scripts/setup.mjs --remote --db-only`
+   applies any new `migrations/*.sql`; if it may not, that step is skipped with a
+   warning telling you to run `npm run db:remote` from a machine with
+   `npx wrangler login` (or to add *D1: Edit* to the token);
+4. `npm run deploy` - uploads the Worker, captures the `*.workers.dev` URL and
    runs `scripts/smoke.mjs` against it: home, `/products`, a product page,
    `/collections`, `/cart`, `/cart/drawer`, `/search`, `sitemap.xml`,
    `robots.txt`, the CSS/JS assets and `/images/*` all have to answer, the cart
    round trip has to work against the real D1, and `/wrangler.jsonc`,
    `/src/...`, `/migrations/...` have to keep returning 404;
-4. if the push touched `images/`, `npm run media:remote` syncs the bucket (a push
+5. if the push touched `images/`, `npm run media:remote` syncs the bucket (a push
    that only changes code skips it);
-5. the Wrangler log is uploaded as a build artifact when a deploy fails.
+6. the Wrangler log is uploaded as a build artifact when a deploy fails.
 
 The only secret it needs:
 
 | secret | where to get it |
 | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard -> My Profile -> API Tokens -> Create Token. The **Edit Cloudflare Workers** template covers Workers, D1 and R2; if you build it by hand you need *Account - Workers Scripts: Edit*, *Account - D1: Edit* and *Account - R2: Edit* |
+
+Without *Account - D1: Edit* the pipeline still deploys code: the probe above
+fails, the migration step is skipped and the run prints a `D1 migrations were
+skipped` warning instead of stopping.
 
 `CLOUDFLARE_ACCOUNT_ID` is optional - the workflow falls back to the account in
 this repo (`7357c2534797a4c04fc95ec58cc04a89`). Set it as a secret or variable if
@@ -123,6 +132,19 @@ Deploys are serialised (`concurrency`) and a running deploy is never cancelled,
 so two quick pushes queue up instead of racing each other. Until
 `CLOUDFLARE_API_TOKEN` exists the job stops on the first step with a
 `Missing CLOUDFLARE_API_TOKEN` annotation instead of failing inside Wrangler.
+
+## Editing the content
+
+There is no admin UI - the routes in `src/index.js` are the public pages only. The
+catalogue and the copy live in Cloudflare, so they can be changed without a deploy:
+
+| what | where |
+| --- | --- |
+| copy, menus, homepage blocks, products, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
+| images and video | R2 `el-media` - dashboard -> *R2 -> el-media -> Objects*, or drop files into `./images` and run `npm run media:remote` |
+| the defaults used to (re)seed a database | `scripts/data/content.mjs`, then `npm run seed:build`, then `npm run db:remote` |
+| worker name, vars, bindings | `wrangler.jsonc` (a change there needs a `git push` to take effect) |
+| deploy history, logs, secrets | GitHub -> *Actions*, and dashboard -> *Workers & Pages -> chen-furniture -> Deployments / Logs / Settings* |
 
 ## Layout
 

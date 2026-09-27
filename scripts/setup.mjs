@@ -9,6 +9,7 @@
  *   node scripts/setup.mjs --with-media         # ... and local R2 media
  *   node scripts/setup.mjs --reset              # wipe local D1/R2 state first
  *   node scripts/setup.mjs --db-only            # migrations only
+ *   node scripts/setup.mjs --skip-db           # mirror ./images only
  *   node scripts/setup.mjs --remote --db-only   # the deployed D1 database
  *   node scripts/setup.mjs --dry-run            # show what would happen
  *
@@ -29,6 +30,7 @@ Bootstraps assets and D1 (and optionally R2) for the replica.
   --local         use the local simulator (default, used by \`npm run dev\`)
   --remote        use the deployed database and bucket
   --db-only       apply migrations only
+  --skip-db       mirror ./images only, leave D1 alone
   --media-only    upload ./images to R2 only
   --with-media    do both
   --skip-copy     do not mirror ./images into public/images
@@ -70,7 +72,7 @@ if (args.help || args.unknown) {
   const images = imageFiles();
   const where = args.target === 'remote' ? '--remote' : '--local';
   const media = args.mediaOnly || args.withMedia;
-  const db = !args.mediaOnly;
+  const db = !args.mediaOnly && !args.skipDb;
 
   console.log(`Target      : ${args.target}`);
   console.log(`Database    : ${database}`);

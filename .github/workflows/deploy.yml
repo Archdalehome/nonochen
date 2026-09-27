@@ -50,8 +50,33 @@ jobs:
       - name: Check the views render
         run: npm run check
 
-      - name: Mirror ./images and apply D1 migrations
-        run: node scripts/setup.mjs --remote --db-only
+      - name: Mirror ./images into the assets directory
+        run: node scripts/setup.mjs --skip-db
+
+      # Applying migrations needs Account - D1: Edit on the token. Probing first
+      # keeps a code-only push deployable with a Workers + R2 token: the deploy
+      # below still runs, it just warns that the schema was left alone.
+      - name: Can this token reach D1?
+        id: d1
+        run: |
+          set -euo pipefail
+          database=$(node -e "import('./scripts/wrangler-cli.mjs').then((m) => console.log(m.bindings().database))")
+          if npx wrangler d1 migrations list "$database" --remote > /dev/null 2>&1; then
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+            echo "the token can read D1 - new migrations will be applied"
+          else
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            echo "the token cannot read D1 - migrations will be skipped"
+          fi
+
+      - name: Apply new D1 migrations
+        if: steps.d1.outputs.reachable == 'true'
+        run: node scripts/setup.mjs --remote --db-only --skip-copy
+
+      - name: D1 migrations skipped
+        if: steps.d1.outputs.reachable != 'true'
+        run: |
+          echo "::warning title=D1 migrations were skipped::CLOUDFLARE_API_TOKEN cannot reach D1, so any new migrations/*.sql were not applied. Add 'Account - D1: Edit' to the token and re-run, or apply them from a machine where 'npx wrangler login' works: npm run db:remote"
 
       - name: Deploy the Worker
         id: deploy

@@ -198,7 +198,7 @@ const productRoute = async (request, env, ctx, handle) => {
       name: product.title,
       description: product.summary || product.description,
       image: product.image,
-      brand: { '@type': 'Brand', name: 'Extreme Lounging' },
+      brand: { '@type': 'Brand', name: 'Chen Furniture' },
       offers: {
         '@type': 'Offer',
         priceCurrency: 'GBP',
@@ -215,7 +215,7 @@ const collectionsRoute = async (request, env, ctx) => {
   const list = await collections(env.DB);
   return view(ctx, {
     title: 'Collections',
-    description: 'Every Extreme Lounging collection, from outdoor bean bags to indoor lighting.',
+    description: 'Every Chen Furniture collection, from outdoor bean bags to indoor lighting.',
     canonical: new URL('/collections', request.url).toString(),
     body: collectionIndex({ list, symbol: ctx.symbol }),
   });
