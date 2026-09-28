@@ -1,8 +1,8 @@
 -- =============================================================================
 --  Chen Furniture - product categories (managed from /admin)
 --  --------------------------------------------------------------------------
---  `categories` drives the strip of links that sits directly under the black
---  announcement bar on every page. Rows are created, edited, reordered and
+--  `categories` drives the row of links in the header on every page (and the
+--  list at the top of the mobile menu). Rows are created, edited, reordered and
 --  deleted in the admin UI (/admin/login, admin/admin) which writes to this
 --  table, so adding a category never needs a code change or a deploy.
 --

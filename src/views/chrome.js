@@ -2,108 +2,53 @@ import { html } from '../lib/html.js';
 import { icons, svgLogo } from './icons.js';
 import { announcementBar } from './partials.js';
 
-/* --------------------------------------------------------- category strip ---- */
+/* -------------------------------------------------------- category links ---- */
 
 /**
- * The product categories managed in /admin, rendered as a slim strip directly
- * under the black announcement bar. Links scroll horizontally on small screens.
+ * The product categories managed in /admin. They are the storefront navigation:
+ * inline in the header row next to the logo, search and cart on desktop, and
+ * listed at the top of the mobile offcanvas menu.
  */
-export const categoryBar = (list = [], path = '') => {
-  if (!list.length) return '';
-  return html`
-    <nav class="category-bar border-bottom" aria-label="Product categories">
-      <div class="container-fluid container-xl px-2">
-        <ul class="category-bar__list list-unstyled d-flex align-items-stretch mb-0">
-          ${list.map((item) => {
-            const href = String(item.href || '#');
-            const current = href.split('?')[0] === path;
-            return html`<li class="category-bar__item">
-              <a
-                href="${href}"
-                class="category-bar__link d-block fs-8 text-uppercase text-reset text-decoration-none py-2 px-3 ${current ? 'is-current' : ''}"
-                ${current ? html`aria-current="page"` : ''}
-              >${item.name}</a>
-            </li>`;
-          })}
-        </ul>
-      </div>
-    </nav>`;
+const categoryLink = (item, path, className) => {
+  const href = String(item.href || '#');
+  const current = href.split('?')[0] === path;
+  return html`<a
+    href="${href}"
+    class="${className}${current ? ' is-current' : ''}"
+    ${current ? html`aria-current="page"` : ''}
+  >${item.name}</a>`;
 };
 
-/* ------------------------------------------------------------- mega menu ---- */
-
-export const megaMenu = (item, index) => html`
-  <li class="navbar-item dropdown mega-menu-container bg-white text-primary py-3">
-    <div class="nav-link text-center d-flex align-items-center h-100" id="mega-menu-link-${index}">
-      <a href="${item.url}" class="text-primary fs-6 text-capitalize nav--top-level">${item.label}</a>
-      <a
-        class="nav-link px-2 d-flex align-items-center"
-        href="#"
-        role="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false"
-        aria-label="Open ${item.label} menu"
-      >${icons.chevronDown}</a>
-    </div>
-    <div class="dropdown-menu mega-menu bg-white py-5 pe-3 rounded-0 border-top border-primary" aria-labelledby="mega-menu-link-${index}">
-      <div class="container-fluid">
-        <div class="row">
-          <div class="col-5">
-            <div class="row h-75">
-              ${item.columns.map(
-                (column) => html`
-                  <div class="col-6 ps-5 pe-5 border-end mega-menu__column">
-                    <a href="${column.url || '#'}" class="d-flex h5 text-start pt-0 pb-2 mb-2 text-primary fw-bold border-bottom border-secondary mega-menu__heading">${column.heading}</a>
-                    <ul class="list-unstyled mb-0">
-                      ${column.links.map(
-                        (link) => html`<li class="mb-2">
-                          <a href="${link.url || '#'}" class="text-capitalize text-start fs-6 text-primary">${link.label}</a>
-                        </li>`
-                      )}
-                    </ul>
-                  </div>`
-              )}
-            </div>
-          </div>
-          <div class="col-7">
-            <div class="row h-100">
-              ${item.promos.map(
-                (promo) => html`
-                  <div class="col max-col-4 h-100">
-                    <div class="position-relative w-100 h-100 mb-4">
-                      <a href="${promo.url || '#'}" class="overflow-hidden d-block rounded-3 block-image--wrapper-shadow h-100" aria-label="${promo.label}">
-                        <img
-                          src="${promo.image}"
-                          width="100%"
-                          height="100%"
-                          loading="lazy"
-                          alt="${promo.label}"
-                          class="object-fit-cover rounded h-100 w-100"
-                        >
-                        <span class="visually-hidden">${promo.label}</span>
-                      </a>
-                      <div class="position-absolute bottom-0 p-4">
-                        <h3 class="text-white fw-light lh-1 mb-2 h4">${promo.label}</h3>
-                      </div>
-                    </div>
-                  </div>`
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </li>`;
+/** The category links that sit between the logo and the search/cart icons. */
+export const categoryNav = (list = [], path = '') => {
+  if (!list.length) return '';
+  return html`
+    <ul class="navbar-nav d-none d-md-flex flex-row justify-content-center flex-fill py-1 mb-0 header-categories" aria-label="Product categories">
+      ${list.map(
+        (item) => html`<li class="navbar-item">
+          ${categoryLink(item, path, 'nav-link fs-6 text-capitalize nav--top-level header-categories__link')}
+        </li>`
+      )}
+    </ul>`;
+};
 
 /* ------------------------------------------------------------------ mobile ---- */
 
-export const mobileNav = (nav) => html`
+export const mobileNav = (nav, categories = [], path = '') => html`
   <div class="offcanvas offcanvas-start mobile-nav" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
     <div class="offcanvas-header border-bottom">
       <span class="heading-font text-uppercase h5 mb-0" id="offcanvasNavbarLabel">Menu</span>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body flex-column">
+      ${categories.length
+        ? html`<nav class="w-100" aria-label="Product categories">
+            <p class="fs-8 text-uppercase text-secondary mb-2">Shop by category</p>
+            <ul class="mobile-nav__categories mb-4">
+              ${categories.map((item) => html`<li>${categoryLink(item, path, 'mobile-nav__category-link')}</li>`)}
+            </ul>
+          </nav>`
+        : ''}
       <div class="accordion accordion-flush w-100" id="mobileNavAccordion">
         ${nav.map((item, index) =>
           item.columns.length
@@ -146,7 +91,6 @@ export const header = (settings, nav, cart, categories = [], path = '') => html`
   <header class="site-header">
     <div class="site-header__bar">
       ${announcementBar(settings)}
-      ${categoryBar(categories, path)}
       <nav class="navbar bg-white p-0 border-bottom">
         <div class="container-fluid container-xl px-2">
           <div class="d-flex justify-content-center w-100 top-navbar align-items-center py-2 py-md-0">
@@ -163,9 +107,7 @@ export const header = (settings, nav, cart, categories = [], path = '') => html`
               </div>
             </div>
             <div class="d-flex ms-auto flex-fill justify-content-end">
-              <ul class="navbar-nav d-none d-md-flex flex-row justify-content-center flex-fill py-1 mb-0">
-                ${nav.map((item, index) => (item.columns.length ? megaMenu(item, index) : menuLink(item)))}
-              </ul>
+              ${categoryNav(categories, path)}
               <div class="d-flex align-items-center">
                 <a href="/search" class="nav-link p-2" aria-label="Search">${icons.search}</a>
                 <button class="nav-link border-0 bg-transparent p-2 position-relative" type="button" data-bs-toggle="offcanvas" data-bs-target="#cart" aria-controls="cart" aria-label="Open cart">
@@ -178,10 +120,5 @@ export const header = (settings, nav, cart, categories = [], path = '') => html`
         </div>
       </nav>
     </div>
-    ${mobileNav(nav)}
+    ${mobileNav(nav, categories, path)}
   </header>`;
-
-export const menuLink = (item) => html`
-  <li class="navbar-item py-3">
-    <a href="${item.url || '#'}" class="nav-link fs-6 text-capitalize">${item.label}</a>
-  </li>`;

@@ -80,17 +80,23 @@ if (collection) await check(`/collections/${collection}`);
 
 /* admin ------------------------------------------------------------------ */
 
-// The category strip must sit under the black announcement bar on the home page.
+// The product categories have to sit in the header row (with the logo, the
+// search and the cart) and in the mobile menu, and one of them must answer.
 const home = await check('/');
-const barAt = home.body.indexOf('category-bar');
-const announcementAt = home.body.indexOf('announcement-bar');
-if (barAt < 0 || announcementAt < 0 || barAt < announcementAt) {
+const rowStart = home.body.indexOf('top-navbar');
+const rowEnd = home.body.indexOf('</nav>', rowStart);
+const categoryAt = home.body.indexOf('header-categories__link', rowStart);
+if (rowStart < 0 || rowEnd < 0 || categoryAt < 0 || categoryAt > rowEnd) {
   failures++;
-  console.log('FAIL the category strip is not rendered under the announcement bar');
+  console.log('FAIL the product categories are not rendered in the header row');
 }
-const barLink = (home.body.match(/href="([^"]+)"\s+class="category-bar__link/) || [])[1];
-if (barLink) await check(barLink);
-else console.log('     note: no categories in the top bar yet');
+if (!home.body.includes('mobile-nav__category-link')) {
+  failures++;
+  console.log('FAIL the product categories are missing from the mobile menu');
+}
+const categoryLink = (home.body.match(/<a[^>]+href="([^"]+)"[^>]+class="[^"]*header-categories__link/) || [])[1];
+if (categoryLink) await check(categoryLink);
+else console.log('     note: no categories in the header yet');
 
 console.log('\nadmin');
 // The Worker falls back to admin/admin; SMOKE_ADMIN_* follow a custom password

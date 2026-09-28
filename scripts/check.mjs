@@ -79,27 +79,44 @@ for (const setting of settings) {
   if (!setting.key) failures.push('content: setting without a key');
 }
 
-// 4. the top category bar and the admin screens must render
-const [{ categoryBar }, { adminPage, categoriesView, loginView }, { normalizeCategory }] = await Promise.all([
+// 4. the header categories and the admin screens must render
+const [{ categoryNav, header }, { adminPage, categoriesView, loginView }, { normalizeCategory }] = await Promise.all([
   import(new URL('src/views/chrome.js', root).href),
   import(new URL('src/views/admin.js', root).href),
   import(new URL('src/lib/admin.js', root).href),
 ]);
 
-const bar = render(
-  categoryBar(
-    [
-      { name: 'Outdoor Range', href: '/collections/outdoor-range', enabled: true },
-      { name: 'Lighting', href: '/category/lighting', enabled: true },
-    ],
-    '/category/lighting'
+const links = [
+  { name: 'Indoor Range', href: '/collections/indoor-range', enabled: true },
+  { name: 'New Products', href: '/category/new-products', enabled: true },
+];
+
+const nav = render(categoryNav(links, '/collections/indoor-range'));
+if (!nav.includes('/collections/indoor-range') || !nav.includes('Indoor Range')) {
+  failures.push('views: categoryNav did not render the managed categories');
+}
+if (!nav.includes('aria-current="page"')) failures.push('views: categoryNav did not mark the current category');
+if (render(categoryNav([], '/')) !== '') failures.push('views: categoryNav should render nothing without categories');
+
+// The categories belong in the header row (between the logo, the search and the
+// cart) and in the mobile menu; the scraped mega menu must be gone for good.
+const chrome = render(
+  header(
+    { announcement_text: 'Free Mainland UK Shipping On All Orders' },
+    [{ label: 'Indoor', url: '/collections/indoor-range', columns: [], promos: [] }],
+    { count: 0 },
+    links,
+    '/collections/indoor-range'
   )
 );
-if (!bar.includes('/collections/outdoor-range') || !bar.includes('Outdoor Range')) {
-  failures.push('views: categoryBar did not render the managed categories');
+const rowStart = chrome.indexOf('top-navbar');
+const rowEnd = chrome.indexOf('</nav>', rowStart);
+const categoriesAt = chrome.indexOf('header-categories__link', rowStart);
+if (rowStart < 0 || rowEnd < 0 || categoriesAt < 0 || categoriesAt > rowEnd) {
+  failures.push('views: the categories are missing from the header row');
 }
-if (!bar.includes('aria-current="page"')) failures.push('views: categoryBar did not mark the current category');
-if (render(categoryBar([], '/')) !== '') failures.push('views: categoryBar should render nothing without categories');
+if (!chrome.includes('mobile-nav__category-link')) failures.push('views: the categories are missing from the mobile menu');
+if (chrome.includes('mega-menu')) failures.push('views: the header still renders the old mega menu');
 
 const login = render(loginView({ siteName: 'Chen Furniture', error: 'nope', next: '/admin/categories' }));
 if (!login.includes('name="username"') || !login.includes('name="password"')) {
@@ -164,6 +181,6 @@ if (failures.length) {
 }
 
 console.log(
-  `All good: ${files.length} modules parsed, ${products.length} products, ${collections.length} collections, admin + category views render.`
+  `All good: ${files.length} modules parsed, ${products.length} products, ${collections.length} collections, admin + header views render.`
 );
 

@@ -106,7 +106,7 @@ const enabledToggle = ({ id, checked, hidden = false }) => html`
   <input type="hidden" name="enabled" value="0">
   <div class="form-check form-switch mb-0">
     <input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="${id}" ${checked ? safe('checked') : ''}>
-    <label class="form-check-label fs-8 text-uppercase" for="${id}">${hidden ? 'Visible in the top bar' : 'Visible'}</label>
+    <label class="form-check-label fs-8 text-uppercase" for="${id}">${hidden ? 'Visible in the header' : 'Visible'}</label>
   </div>`;
 
 const filterValueField = (item, id) => html`
@@ -170,7 +170,7 @@ const categoryRow = (item, index, count) => html`
                   aria-label="Move ${item.name} down">&darr;</button>
         </form>
         <form method="post" action="/admin/categories/delete" class="mb-0"
-              data-admin-confirm="Delete &quot;${item.name}&quot;? The link disappears from the top bar straight away.">
+              data-admin-confirm="Delete &quot;${item.name}&quot;? The link disappears from the header straight away.">
           <input type="hidden" name="id" value="${item.id}">
           <button class="btn btn-outline-danger btn-sm rounded px-3" type="submit">Delete</button>
         </form>
@@ -183,8 +183,7 @@ export const categoriesView = ({ list = [] }) => html`
     <div>
       <h1 class="heading-font text-uppercase h4 mb-1">Product categories</h1>
       <p class="text-secondary fs-7 mb-0">
-        These links fill the strip directly under the
-        <strong>&ldquo;Free Mainland UK Shipping On All Orders&rdquo;</strong> bar, in the order below.
+        These links fill the header row, next to the logo and the cart, in the order below.
       </p>
     </div>
     <span class="fs-7 text-secondary">${list.length} categor${list.length === 1 ? 'y' : 'ies'}</span>

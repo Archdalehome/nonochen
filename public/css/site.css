@@ -272,34 +272,35 @@ a:hover { color: var(--bs-link-hover-color); }
   flex-shrink: 0;
 }
 
-/* Category strip: the links managed in /admin, right under the announcement bar. */
-.category-bar { background-color: #fff; }
-
-.category-bar__list {
+/* Category links: the product categories managed in /admin, inline in the header
+   row between the logo and the search/cart icons. They scroll sideways when the
+   window is too narrow to fit them all. */
+.header-categories {
   justify-content: center;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.category-bar__list::-webkit-scrollbar { display: none; }
-.category-bar__item { flex: 0 0 auto; }
+.header-categories::-webkit-scrollbar { display: none; }
+.header-categories .navbar-item { flex: 0 0 auto; }
 
-.category-bar__link {
-  letter-spacing: .08em;
+.header-categories__link {
+  letter-spacing: .04em;
   white-space: nowrap;
   border-bottom: 1px solid transparent;
 }
 
-.category-bar__link:hover,
-.category-bar__link:focus-visible { border-bottom-color: var(--cf-black); }
+.header-categories__link:hover,
+.header-categories__link:focus-visible { border-bottom-color: var(--cf-black); }
 
-.category-bar__link.is-current {
+.header-categories__link.is-current {
   font-weight: 500;
   border-bottom-color: var(--cf-black);
 }
 
-@media (max-width: 767.98px) {
-  .category-bar__list { justify-content: flex-start; }
+/* Below xl there is no room to centre the links, so let them follow the logo. */
+@media (max-width: 1199.98px) {
+  .header-categories { justify-content: flex-start; }
 }
 
 /* Icons are inline SVGs with no intrinsic size, so give them sane defaults. */
@@ -346,40 +347,28 @@ a:hover { color: var(--bs-link-hover-color); }
   padding: .3em .45em;
 }
 
-/* ------------------------------------------------------------------ mega menu -- */
-
-.mega-menu-container { position: static; }
-
-.mega-menu {
-  width: 100%;
-  margin: 0;
-  border-radius: 0;
-  border-top: 1px solid var(--cf-black) !important;
-  box-shadow: 0 1.5rem 2rem -.75rem rgba(24, 24, 27, .12);
-}
-
-.mega-menu__column + .mega-menu__column { border-left: 1px solid var(--bs-border-color); }
-.mega-menu__heading { text-decoration: none; }
-.mega-menu .max-col-4 { flex: 0 0 auto; }
-
-@media (min-width: 992px) {
-  /* Open the panel on hover as well as on click, like the original theme. */
-  .mega-menu-container:hover > .mega-menu,
-  .mega-menu-container:focus-within > .mega-menu {
-    display: block;
-  }
-
-  .mega-menu-container:hover > .dropdown-menu { top: 100%; }
-}
-
-@media (max-width: 991.98px) {
-  .mega-menu { position: static; border-top: 0 !important; }
-}
-
 /* --------------------------------------------------------------- mobile nav -- */
 
 .mobile-nav { width: min(88vw, 24rem); }
 .mobile-nav .offcanvas-body { padding: 1rem 1rem 2rem; }
+
+/* The same categories, listed at the top of the mobile menu. */
+.mobile-nav__categories { list-style: none; padding: 0; margin: 0 0 1rem; }
+.mobile-nav__categories > li { border-bottom: 1px solid var(--bs-border-color); }
+
+.mobile-nav__category-link {
+  display: block;
+  padding: .85rem 0;
+  color: var(--cf-black);
+  text-decoration: none;
+}
+
+.mobile-nav__category-link.is-current {
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: .35rem;
+}
+
 .mobile-nav .accordion-button { font-size: 1rem; }
 .mobile-nav .accordion-button:not(.collapsed) { background-color: transparent; box-shadow: none; }
 

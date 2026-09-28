@@ -96,7 +96,7 @@ const notFound = (ctx, message = 'We could not find that page.') =>
 
 const currencySymbol = (env) => env.CURRENCY_SYMBOL || '£';
 
-/** Everything the layout needs: settings, nav, footer, cart and the top bar. */
+/** Everything the layout needs: settings, nav, footer, cart and the header categories. */
 const chrome = async (request, env) => {
   const db = env.DB;
   const id = cartId(request);
@@ -280,7 +280,7 @@ const collectionRoute = async (request, env, ctx, handle) => {
 /* ------------------------------------------------------------ categories ---- */
 
 /**
- * `/category/<slug>` backs the links in the strip under the announcement bar.
+ * `/category/<slug>` backs the header links that have no link override.
  * The row picked in /admin decides which products are listed - a collection, a
  * product tag or everything - so a brand new category needs no code change.
  */
@@ -318,7 +318,7 @@ const adminSiteName = (env) => env.SITE_NAME || 'Chen Furniture';
 
 /** `?flash=` / `?error=` values the admin screens can show. */
 const ADMIN_NOTICES = {
-  created: { kind: 'success', message: 'Category added - it is already live in the top bar.' },
+  created: { kind: 'success', message: 'Category added - it is already live in the header.' },
   saved: { kind: 'success', message: 'Category saved.' },
   moved: { kind: 'success', message: 'Order updated.' },
   deleted: { kind: 'success', message: 'Category deleted.' },

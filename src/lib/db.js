@@ -170,7 +170,7 @@ const hydrateCategory = (row) => ({
   href: row.url || `/category/${row.slug}`,
 });
 
-/** The categories in the strip under the announcement bar (memoised). */
+/** The categories in the header row and the mobile menu (memoised). */
 export const categories = (db) =>
   memo('categories', async () => {
     const { results } = await db
@@ -229,7 +229,7 @@ export const deleteCategory = async (db, id) => {
   invalidate('categories');
 };
 
-/** Swaps the category with its neighbour and renumbers the whole bar 1..n. */
+/** Swaps the category with its neighbour and renumbers the whole list 1..n. */
 export const moveCategory = async (db, id, direction) => {
   const list = await allCategories(db);
   const index = list.findIndex((item) => item.id === Number(id));

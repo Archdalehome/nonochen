@@ -106,9 +106,10 @@ can also be started by hand from the Actions tab (or `gh workflow run deploy.yml
    runs `scripts/smoke.mjs` against it: home, `/products`, a product page,
    `/collections`, `/cart`, `/cart/drawer`, `/search`, `sitemap.xml`,
    `robots.txt`, the CSS/JS assets and `/images/*` all have to answer, the cart
-   round trip has to work against the real D1, the category strip has to render
-   directly under the announcement bar and follow one of its links, and the
-   admin area has to sign in with `SMOKE_ADMIN_USER` / `SMOKE_ADMIN_PASSWORD`,
+   round trip has to work against the real D1, the product categories have to
+   render in the header row and in the mobile menu and one of their links has to
+   answer, and the admin area has to sign in with `SMOKE_ADMIN_USER` /
+   `SMOKE_ADMIN_PASSWORD`,
    add a hidden `smoke-<timestamp>` category, reject a duplicate slug and a bad
    slug, edit it, move it, delete it again and sign out - all against the live
    D1 (`/wrangler.jsonc`, `/src/...`, `/migrations/...` have to keep returning
@@ -140,8 +141,9 @@ so two quick pushes queue up instead of racing each other. Until
 
 ## Admin (`/admin`)
 
-A small admin area manages the **product categories**: the strip of links under
-the black "Free Mainland UK Shipping On All Orders" bar on every page.
+A small admin area manages the **product categories**: the row of links in the
+header, next to the logo and the search/cart icons, on every page (they are
+listed at the top of the mobile menu as well).
 
 * `/admin/login` - sign in with **admin / admin** (see below to change it)
 * `/admin/categories` - add, rename, reorder, hide and delete categories
@@ -150,16 +152,16 @@ Each row controls:
 
 | field | meaning |
 | --- | --- |
-| name | the label shown in the strip |
+| name | the label shown in the header |
 | slug | the unique key, also used for `/category/<slug>` |
 | link override | optional - empty means the label links at `/category/<slug>`; set it to reuse an existing page such as `/collections/outdoor-range` |
 | products shown | `collection` (everything in a collection), `tag` (products whose `cat_handle` / `cat_label` matches) or `all products` |
-| order | position in the strip - the arrows move a row one step |
+| order | position in the header row - the arrows move a row one step |
 | visible | unchecked rows stay in the admin but leave the storefront |
 
 Edits are written to the D1 `categories` table (created and seeded by
 `migrations/0005_categories.sql`) and appear straight away: the storefront
-memoises the bar for 30 seconds per Worker isolate and the admin invalidates it
+memoises the list for 30 seconds per Worker isolate and the admin invalidates it
 on every write. Only `position` is compared, so deleting a row can leave a gap
 (the seeded ten may read 1..9, 11 after the deploy smoke test has created and
 removed its own row) - the admin list and the storefront show the same order
@@ -190,7 +192,7 @@ can be changed without a deploy:
 | what | where |
 | --- | --- |
 | copy, menus, homepage blocks, products, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
-| the category strip | `/admin/categories` (see above), or the `categories` table directly |
+| the header categories | `/admin/categories` (see above), or the `categories` table directly |
 | images and video | R2 `el-media` - dashboard -> *R2 -> el-media -> Objects*, or drop files into `./images` and run `npm run media:remote` |
 | the defaults used to (re)seed a database | `scripts/data/content.mjs`, then `npm run seed:build`, then `npm run db:remote` |
 | worker name, vars, bindings | `wrangler.jsonc` (a change there needs a `git push` to take effect) |
@@ -209,7 +211,7 @@ scripts/              setup.mjs, upload-media.mjs, wrangler-cli.mjs (shared help
 src/index.js          router + request handlers (storefront + /admin)
 src/lib/              html.js (templates), db.js (queries), cart.js (cart + cookies),
                       cookies.js (cookie helpers), admin.js (login, session, category rules)
-src/views/            layout, chrome (incl. the category strip), home, product,
+src/views/            layout, chrome (incl. the header categories), home, product,
                       collection, cart, cart-drawer, admin (login + category manager), ...
 _scratch/             scraped dumps used while writing the views (git-ignored)
 ```
