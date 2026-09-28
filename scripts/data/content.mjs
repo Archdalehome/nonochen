@@ -273,6 +273,36 @@ export const sections = [
   },
   {
     page: 'home',
+    type: 'masonry',
+    name: 'Discover Products & Ranges',
+    position: 3,
+    data: {
+      heading: 'Discover Products & Ranges',
+      intro: 'Some of our other products & ranges perfect for your furniture collection',
+      span_rows: 2,
+      items: [
+        { label: 'B-Poufe', image: '/images/modular-b-poufe.png', url: '/collections/b-poufe-all-styles', span: 'g-col-6 g-col-md-3', align: 'align-items-start' },
+        { label: 'Cushions', image: '/images/modular-cushions.png', url: '/collections/b-cushion', span: 'g-col-6 g-col-md-3', align: 'align-items-start' },
+        { label: 'Lighting', image: '/images/modular-lighting.png', url: '/collections/lighting-all-styles', span: 'g-col-12 g-col-md-6 row-span-md-2', align: 'align-items-center' },
+        { label: 'B-Dogbed', image: '/images/modular-dogbed.png', url: '/collections/pets-range', span: 'g-col-12 g-col-md-6', align: 'align-items-start' },
+      ],
+    },
+  },
+  {
+    page: 'home',
+    type: 'product_row',
+    name: 'All Products',
+    position: 4,
+    data: {
+      heading: 'All Products',
+      subheading: '',
+      source: 'grid',
+      pickers: [],
+      view_all: { label: 'VIEW ALL', url: '/collections/outdoor-range' },
+    },
+  },
+  {
+    page: 'home',
     type: 'link_grid',
     name: 'Shop Outdoor / Shop Indoor',
     position: 5,
@@ -297,23 +327,6 @@ export const sections = [
   },
   {
     page: 'home',
-    type: 'masonry',
-    name: 'Discover Products & Ranges',
-    position: 3,
-    data: {
-      heading: 'Discover Products & Ranges',
-      intro: 'Some of our other products & ranges perfect for your furniture collection',
-      span_rows: 2,
-      items: [
-        { label: 'B-Poufe', image: '/images/modular-b-poufe.png', url: '/collections/b-poufe-all-styles', span: 'g-col-6 g-col-md-3', align: 'align-items-start' },
-        { label: 'Cushions', image: '/images/modular-cushions.png', url: '/collections/b-cushion', span: 'g-col-6 g-col-md-3', align: 'align-items-start' },
-        { label: 'Lighting', image: '/images/modular-lighting.png', url: '/collections/lighting-all-styles', span: 'g-col-12 g-col-md-6 row-span-md-2', align: 'align-items-center' },
-        { label: 'B-Dogbed', image: '/images/modular-dogbed.png', url: '/collections/pets-range', span: 'g-col-12 g-col-md-6', align: 'align-items-start' },
-      ],
-    },
-  },
-  {
-    page: 'home',
     type: 'image_banner',
     name: 'Keep Cosy Anywhere',
     position: 7,
@@ -322,19 +335,6 @@ export const sections = [
       title: 'Keep Cosy Anywhere',
       text: '',
       button: { label: 'EXPLORE B-BLANKET', url: '/collections/b-blanket', style: 'btn-white', color: '#18181B' },
-    },
-  },
-  {
-    page: 'home',
-    type: 'product_row',
-    name: 'All Products',
-    position: 4,
-    data: {
-      heading: 'All Products',
-      subheading: '',
-      source: 'grid',
-      pickers: [],
-      view_all: { label: 'VIEW ALL', url: '/collections/outdoor-range' },
     },
   },
   /* Content pages. They live in `sections` too, keyed by page = 'page:<handle>'. */
