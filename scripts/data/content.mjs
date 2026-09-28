@@ -224,11 +224,6 @@ export const menu = {
       ],
     },
   ],
-  countries: [
-    { code: 'IE', label: 'Ireland (€)' },
-    { code: 'MD', label: 'Moldova (€)' },
-    { code: 'GB', label: 'United Kingdom (£)', selected: 1 },
-  ],
 };
 
 

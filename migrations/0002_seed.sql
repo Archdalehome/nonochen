@@ -61,8 +61,7 @@ INSERT INTO settings (key, value, label, group_name) VALUES
   ('other_styles_heading', 'Other Styles', NULL, 'product'),
   ('other_styles_sub', 'Explore the full B-Bag range', NULL, 'product'),
   ('ranges_heading', 'Discover Products & Ranges', NULL, 'product'),
-  ('ranges_intro', 'Some of our other products & ranges perfect for your furniture collection', NULL, 'product'),
-  ('country_options', '[{"code":"IE","label":"Ireland (€)"},{"code":"MD","label":"Moldova (€)"},{"code":"GB","label":"United Kingdom (£)","selected":1}]', 'Country picker', 'footer');
+  ('ranges_intro', 'Some of our other products & ranges perfect for your furniture collection', NULL, 'product');
 
 INSERT INTO collections (handle, title, subtitle, description, sort_order) VALUES
   ('indoor-range', 'Indoor Range', 'Comfort for every room', '', 1),

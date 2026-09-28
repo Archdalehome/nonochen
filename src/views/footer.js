@@ -1,15 +1,6 @@
 import { html, safe } from '../lib/html.js';
 import { icons } from './icons.js';
 
-const countryOptions = (value) => {
-  try {
-    const parsed = JSON.parse(value || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
 /* ---------------------------------------------------------------- columns ---- */
 
 /** The links of one column, minus the rows an editor left without a URL. */
@@ -19,18 +10,15 @@ const columnLinks = (group) => (group.links || []).filter((link) => link.url);
 const target = (url) => (/^https?:\/\//i.test(url) ? safe(' target="_blank" rel="noopener"') : '');
 
 /**
- * How wide one footer column is. The link columns share their row with the
- * currency picker, so the width follows how many of them there are (four read as
- * two across on a tablet and four across on a desktop) and the row never wraps.
+ * How wide one footer column is: the link columns split their row evenly, so the
+ * width follows how many of them there are (four read as two across on a tablet
+ * and four across on a desktop) and the row never wraps.
  */
 const columnClass = (columns) =>
   columns >= 4 ? 'col-6 col-lg-3' : columns === 3 ? 'col-4' : columns === 2 ? 'col-6' : 'col-12';
 
-export const footer = (settings, groups = [], symbol = '£') => {
-  // The currency picker closes the row and is a column of its own - it carries
-  // no heading - hence the + 1: it decides how wide the link columns may be
-  // drawn.
-  const width = columnClass(groups.length + 1);
+export const footer = (settings, groups = []) => {
+  const width = columnClass(groups.length);
   return html`
   <footer class="pt-3 pt-md-0 bg-footer mt-auto">
     <div class="container py-4 py-md-5">
@@ -66,16 +54,6 @@ export const footer = (settings, groups = [], symbol = '£') => {
                   )}
                 </div>`
             )}
-            <div class="${width}">
-              <form method="post" action="/localization" class="localize__form" data-localize>
-                <label for="currency-selector" class="visually-hidden">Currency Selector</label>
-                <select name="country_code" class="border border-secondary bg-white rounded px-2 py-1 w-100" id="currency-selector" data-country-selector>
-                  ${countryOptions(settings.country_options).map(
-                    (country) => html`<option value="${country.code}" ${country.selected ? safe('selected') : ''}>${country.label}</option>`
-                  )}
-                </select>
-              </form>
-            </div>
           </div>
 
           <div class="accordion d-md-none" id="accordionFooter">

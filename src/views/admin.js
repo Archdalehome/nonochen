@@ -752,14 +752,10 @@ const footerLinkRow = (link, index, count) => html`
     })}
   </div>`;
 
-
-
 /**
  * `/admin/footer`: the link columns at the bottom of every page. The columns are
  * rows in `menu_items` (location = 'footer'), so nothing here decides how they
- * are laid out - the screen only changes the words, the links and the order. The
- * currency picker that closes the row is a setting, not one of these columns, and
- * it carries no heading.
+ * are laid out - the screen only changes the words, the links and the order.
  */
 export const footerView = ({ groups = [] } = {}) => html`
   <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
@@ -770,8 +766,7 @@ export const footerView = ({ groups = [] } = {}) => html`
         the site; a full <code>https://</code> URL (the socials) opens in a new tab.
       </p>
       <p class="text-secondary fs-8 mb-0">
-        The copyright line and the currency picker are settings, not columns - <code>footer_copyright</code> and
-        <code>country_options</code> live in D1.
+        The copyright line is a setting, not a column - <code>footer_copyright</code> lives in D1.
       </p>
     </div>
     <span class="fs-7 text-secondary">${groups.length} column${groups.length === 1 ? '' : 's'}</span>
@@ -782,7 +777,7 @@ export const footerView = ({ groups = [] } = {}) => html`
       <div class="col-12">
         <h2 class="h6 text-uppercase mb-1">Columns</h2>
         <p class="text-secondary fs-7 mb-0">
-          One card per column, in the order the footer shows them. The currency picker closes the row and is left alone.
+          One card per column, in the order the footer shows them. The columns split the row between themselves.
         </p>
       </div>
     </div>

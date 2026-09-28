@@ -53,7 +53,7 @@ export const layout = ({
   <body class="d-flex flex-column min-vh-100 ${bodyClass}">
     ${header(settings, cart, categories, path)}
     <main class="flex-grow-1" id="main">${body}</main>
-    ${footer(settings, groups, symbol)}
+    ${footer(settings, groups)}
     ${cartDrawer(settings, cart, symbol)}
     <div class="toast-container position-fixed bottom-0 end-0 p-3" id="site-toasts"></div>
     <script src="/js/bootstrap.bundle.min.js" defer></script>

@@ -307,17 +307,24 @@ const footer = await check('/admin/footer', {
   init: { headers: admin },
   contains: ['Footer', 'action="/admin/footer/group"', 'action="/admin/footer/link"'],
 });
-// The Location heading is gone from both sides of the wire: the screen stopped
-// offering it and the storefront stopped rendering it. The currency picker keeps
-// the last column, which is what the check on `/` below proves.
+// The Location heading and the currency picker are gone from both sides of the
+// wire: the screen stopped offering them and the storefront stopped rendering
+// them. The homepage check below is where the picker used to sit.
 if (footer.body.includes('Location heading') || footer.body.includes('action="/admin/footer/location"')) {
   failures++;
   console.log('FAIL /admin/footer  <- the Location heading form is still there');
 }
-const picker = await check('/', { contains: ['id="currency-selector"'] });
-if (picker.body.includes('<h5 class="lh-sm fw-medium mb-4">Location')) {
-  failures++;
-  console.log('FAIL /  <- the storefront still renders the Location heading');
+const storefront = await check('/');
+for (const gone of [
+  'id="currency-selector"',
+  'country_code',
+  'data-localize',
+  '<h5 class="lh-sm fw-medium mb-4">Location',
+]) {
+  if (storefront.body.includes(gone)) {
+    failures++;
+    console.log(`FAIL /  <- the footer still renders ${gone}`);
+  }
 }
 /** The markup of one form on that screen, from its action attribute to its close. */
 const formBlock = (body, marker) => {

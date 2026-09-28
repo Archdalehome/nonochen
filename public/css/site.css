@@ -723,7 +723,6 @@ body > footer a:hover { text-decoration: underline; text-underline-offset: .2em;
 body > footer .accordion-button::after { width: 1rem; height: 1rem; background-size: 1rem; }
 body > footer small { font-size: .75rem; }
 .socials-container a:hover { opacity: .65; }
-.localize__form select { font-size: .875rem; border-radius: .375rem; }
 
 /* ---------------------------------------------------------------- feedback -- */
 

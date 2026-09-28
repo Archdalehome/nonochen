@@ -528,13 +528,17 @@ for (const expected of [
 ]) {
   if (!footerAdmin.includes(expected)) failures.push(`views: the footer admin screen is missing ${expected}`);
 }
-// The Location heading - and the form that used to edit it - is gone.
+// The Location heading and the currency picker - and the forms that used to edit
+// them - are gone.
 if (footerAdmin.includes('Location heading') || footerAdmin.includes('action="/admin/footer/location"')) {
   failures.push('views: the footer admin screen still offers the Location heading');
 }
+if (footerAdmin.includes('country_options')) {
+  failures.push('views: the footer admin screen still mentions the currency picker');
+}
 
-// The storefront renders those very columns, keeps the currency picker next to
-// them and sends a link that leaves the site to a new tab.
+// The storefront renders those very columns, splits the row between them and
+// sends a link that leaves the site to a new tab.
 const footerMarkup = render(storefrontFooter(footerSettings, footerGroups));
 for (const expected of [
   '<h5 class="lh-sm fw-medium mb-4">Company</h5>',
@@ -542,20 +546,35 @@ for (const expected of [
   '>About</a>',
   'href="/pages/about"',
   'href="https://www.instagram.com/" target="_blank" rel="noopener"',
-  'id="currency-selector"',
-  'col-6 col-lg-3',
+  'col-4',
 ]) {
   if (!footerMarkup.includes(expected)) failures.push(`views: the storefront footer is missing ${expected}`);
 }
-// The heading that used to sit over the currency picker is not rendered any
-// more (the picker still closes the row, as the expectation above shows).
-if (footerMarkup.includes('<h5 class="lh-sm fw-medium mb-4">Location')) {
-  failures.push('views: the storefront footer still renders the Location heading');
+// The currency picker - and the heading that used to sit over it - is not
+// rendered any more: no country list, no form, nowhere to post one.
+if (
+  footerMarkup.includes('currency-selector') ||
+  footerMarkup.includes('country_options') ||
+  footerMarkup.includes('data-localize') ||
+  footerMarkup.includes('<h5 class="lh-sm fw-medium mb-4">Location')
+) {
+  failures.push('views: the storefront footer still renders the currency picker');
 }
-// Two columns and the picker read as three equal thirds, as they always did.
+// A database that still holds the row must not bring it back either.
+const leftoverPicker = render(
+  storefrontFooter(
+    { ...footerSettings, country_options: '[{"code":"GB","label":"United Kingdom (£)","selected":1}]' },
+    footerGroups
+  )
+);
+if (leftoverPicker.includes('United Kingdom') || leftoverPicker.includes('<select')) {
+  failures.push('views: a leftover country_options row still renders a currency picker');
+}
+// Three columns split the row in thirds, two in halves - the picker used to hold
+// a fourth place of its own.
 const twoColumns = render(storefrontFooter(footerSettings, footerGroups.slice(0, 2)));
-if (!twoColumns.includes('<div class="col-4">')) {
-  failures.push('views: two footer columns plus the picker should keep the original thirds');
+if (!twoColumns.includes('<div class="col-6">')) {
+  failures.push('views: two footer columns should read as halves');
 }
 
 // 7. the footer form rules behind that screen

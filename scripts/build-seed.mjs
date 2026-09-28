@@ -58,7 +58,6 @@ const insertMany = (table, columns, rows, perStatement = 25) => {
 /* -------------------------------------------------------------- settings ---- */
 
 const settingsRows = settings.map((s) => [q(s.key), q(s.value), q(s.label ?? null), q(s.group ?? 'general')]);
-settingsRows.push([q('country_options'), q(JSON.stringify(menu.countries)), q('Country picker'), q('footer')]);
 
 /* ----------------------------------------------------------- collections ---- */
 

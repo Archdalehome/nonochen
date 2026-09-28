@@ -173,8 +173,7 @@ rendered anywhere.
 * `/admin/home` - the announcement bar and the hero: its video (a path, a URL or
   an upload), the heading, text and links over it
 * `/admin/footer` - the link columns at the bottom of every page (Company, Follow
-  and Help, plus the heading over the currency picker): rename, reorder, hide and
-  re-fill them
+  and Help): rename, reorder, hide and re-fill them
 * `/admin/categories` - add, rename, reorder, hide and delete categories
 * `/admin/categories/products?slug=<slug>` - the products one category lists:
   edit any row, add a product that is already in the shop, create a brand new
@@ -294,9 +293,13 @@ the storefront already renders, so nothing about the layout changes:
 * a **link** is the text a shopper reads and the page behind it. Links have to be
   a path (`/pages/about`), a full `https://` URL or a `mailto:` address - a link
   that goes nowhere is refused. `https://` links (the socials) open in a new tab,
-  paths stay on the site;
-* the **currency picker** closes the row. It is a setting (`country_options`), not
-  a column, so it is not edited here and it has no heading.
+  paths stay on the site.
+
+The country/currency `<select>` that used to close that row is gone: nothing read
+the `country_options` setting, nothing handled the form (`data-localize` posted to
+a `/localization` route the Worker never had) and `scripts/data/content.mjs` no
+longer carries the country list, so the seed no longer writes the key. The columns
+now split the row between themselves.
 
 The columns are rows in `menu_items` (`location = 'footer'`, one `group_heading`
 per column and one `link` per item under it, which is what the seed writes too)
@@ -306,10 +309,9 @@ job: the field writes `sort_order`, the arrows renumber the whole list.
 
 Two things worth knowing:
 
-* the width of a column follows how many of them there are, so the row keeps its
-  shape - two columns read as thirds next to the picker, as they always did, and
-  four (Company, Follow, Help and the picker) read as halves on a tablet and
-  quarters on a desktop;
+* the width of a column follows how many of them there are, so the columns always
+  fill the half of the footer that sits under the logo - two read as halves, three
+  as thirds and four as quarters (halves on a tablet) - and the row never wraps;
 * the seeded columns are **Company** (About, Contact, FAQ), **Follow**
   (Instagram, Facebook, TikTok) and **Help** (Terms, Privacy, Delivery, Returns).
   `migrations/0006_footer.sql` is what puts them there, and it also creates the
@@ -317,7 +319,8 @@ Two things worth knowing:
   content pages, with copy that sticks to what the site already publishes. Point
   a link somewhere else from this screen and the pages are simply unused.
   `migrations/0007_drop_footer_location_heading.sql` takes the old `Location`
-  heading setting back out of a database that still has it.
+  heading setting, and `migrations/0008_drop_country_options.sql` the country list
+  behind the old currency picker, back out of a database that still has them.
 
 The social handles in the seeded Follow column point at the platforms' own
 homepages; replace them with your profile URLs.
