@@ -139,7 +139,13 @@ The only secret it needs:
 
 Without *Account - D1: Edit* the pipeline still deploys code: the probe above
 fails, the migration step is skipped and the run prints a `D1 migrations were
-skipped` warning instead of stopping.
+skipped` warning instead of stopping. The smoke test that follows then fails on
+whatever that migration was meant to add (a page it creates, a screen it seeds),
+so apply it from a machine where `npx wrangler login` works before the next push:
+
+```bash
+npm run db:remote        # npx wrangler d1 migrations apply el_store --remote
+```
 
 `CLOUDFLARE_ACCOUNT_ID` is optional - the workflow falls back to the account in
 this repo (`7357c2534797a4c04fc95ec58cc04a89`). Set it as a secret or variable if
