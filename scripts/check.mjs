@@ -81,7 +81,7 @@ for (const setting of settings) {
 
 // 4. the header categories and the admin screens must render
 const [
-  { categoryNav, header },
+  { categoryNav, header, mobileNav },
   { adminPage, categoriesView, categoryProductsView, loginView },
   { normalizeCategory, normalizeProduct },
 ] = await Promise.all([
@@ -103,11 +103,11 @@ if (!nav.includes('aria-current="page"')) failures.push('views: categoryNav did 
 if (render(categoryNav([], '/')) !== '') failures.push('views: categoryNav should render nothing without categories');
 
 // The categories belong in the header row (between the logo, the search and the
-// cart) and in the mobile menu; the scraped mega menu must be gone for good.
+// cart) and at the top of the mobile drawer, whose only other content is the
+// three links under them - the scraped mega menu must be gone for good.
 const chrome = render(
   header(
     { announcement_text: 'Free Mainland UK Shipping On All Orders' },
-    [{ label: 'Indoor', url: '/collections/indoor-range', columns: [], promos: [] }],
     { count: 0 },
     links,
     '/collections/indoor-range'
@@ -121,6 +121,24 @@ if (rowStart < 0 || rowEnd < 0 || categoriesAt < 0 || categoriesAt > rowEnd) {
 }
 if (!chrome.includes('mobile-nav__category-link')) failures.push('views: the categories are missing from the mobile menu');
 if (chrome.includes('mega-menu')) failures.push('views: the header still renders the old mega menu');
+
+// The drawer lists the categories, then Search / Contact Details / Store Locator
+// and nothing in between.
+const drawer = render(mobileNav(links, '/collections/indoor-range'));
+if (!drawer.includes('mobile-nav__category-link')) failures.push('views: the mobile menu did not render the categories');
+for (const [label, href] of [
+  ['Search', '/search'],
+  ['Contact Details', '/pages/contact-details'],
+  ['Store Locator', '/pages/store-locator'],
+]) {
+  if (!drawer.includes(`href="${href}">${label}</a>`)) failures.push(`views: the mobile menu is missing the ${label} link`);
+}
+for (const scraped of ['mobileNavAccordion', 'accordion-button', 'border-bottom py-3', 'Shop all']) {
+  if (drawer.includes(scraped)) failures.push(`views: the mobile menu still renders the scraped menu (${scraped})`);
+}
+if (!render(mobileNav([], '/')).includes('Store Locator')) {
+  failures.push('views: the mobile menu links should survive an empty category list');
+}
 
 const login = render(loginView({ siteName: 'Chen Furniture', error: 'nope', next: '/admin/categories' }));
 if (!login.includes('name="username"') || !login.includes('name="password"')) {

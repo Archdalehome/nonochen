@@ -15,7 +15,6 @@ import {
   deleteProduct,
   footerGroups,
   moveCategory,
-  navigation,
   productByHandle,
   productById,
   productHandleTaken,
@@ -105,21 +104,19 @@ const notFound = (ctx, message = 'We could not find that page.') =>
 
 const currencySymbol = (env) => env.CURRENCY_SYMBOL || '£';
 
-/** Everything the layout needs: settings, nav, footer, cart and the header categories. */
+/** Everything the layout needs: settings, the footer, the cart and the header categories. */
 const chrome = async (request, env) => {
   const db = env.DB;
   const id = cartId(request);
   const path = new URL(request.url).pathname.replace(/\/+$/, '') || '/';
-  const [siteSettings, nav, groups, cart, topCategories] = await Promise.all([
+  const [siteSettings, groups, cart, topCategories] = await Promise.all([
     loadSettings(db),
-    navigation(db, 'header'),
     footerGroups(db),
     loadCart(db, id),
     categories(db),
   ]);
   return {
     settings: siteSettings,
-    nav,
     groups,
     cart,
     categories: topCategories,

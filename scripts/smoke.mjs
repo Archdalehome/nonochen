@@ -94,19 +94,23 @@ const placement = (body) => {
   return {
     inRow: rowStart >= 0 && rowEnd >= 0 && categoryAt >= 0 && categoryAt <= rowEnd,
     inMenu: body.includes('mobile-nav__category-link'),
+    // The drawer is the categories plus the three links at the bottom of it - the
+    // scraped menu_items tree used to fill the middle.
+    menuClean: !body.includes('mobileNavAccordion') && !body.includes('Shop all'),
   };
 };
+const placedOk = (result) => result.inRow && result.inMenu && result.menuClean;
 
 let homeBody = (await check('/')).body;
 let placed = placement(homeBody);
-for (let attempt = 1; attempt < headerAttempts && !(placed.inRow && placed.inMenu); attempt++) {
+for (let attempt = 1; attempt < headerAttempts && !placedOk(placed); attempt++) {
   await new Promise((resolve) => setTimeout(resolve, headerDelayMs));
   // Silent on purpose: the retry only keeps the log readable when the release
   // was still rolling out.
   const retry = await call('/').catch(() => ({ body: '' }));
   if (retry.body) homeBody = retry.body;
   placed = placement(homeBody);
-  if (placed.inRow && placed.inMenu) {
+  if (placedOk(placed)) {
     console.log(`     note: the categories showed up on retry ${attempt} - the release was still rolling out`);
   }
 }
@@ -117,6 +121,10 @@ if (!placed.inRow) {
 if (!placed.inMenu) {
   failures++;
   console.log('FAIL the product categories are missing from the mobile menu');
+}
+if (!placed.menuClean) {
+  failures++;
+  console.log('FAIL the mobile menu still renders the scraped menu items');
 }
 const categoryLink = (homeBody.match(/<a[^>]+href="([^"]+)"[^>]+class="[^"]*header-categories__link/) || [])[1];
 if (categoryLink) await check(categoryLink);

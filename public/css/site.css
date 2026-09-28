@@ -352,7 +352,8 @@ a:hover { color: var(--bs-link-hover-color); }
 .mobile-nav { width: min(88vw, 24rem); }
 .mobile-nav .offcanvas-body { padding: 1rem 1rem 2rem; }
 
-/* The same categories, listed at the top of the mobile menu. */
+/* The drawer is the header categories plus the three links under them; the
+   scraped accordion menu that used to sit between the two is not rendered. */
 .mobile-nav__categories { list-style: none; padding: 0; margin: 0 0 1rem; }
 .mobile-nav__categories > li { border-bottom: 1px solid var(--bs-border-color); }
 
@@ -368,9 +369,6 @@ a:hover { color: var(--bs-link-hover-color); }
   text-decoration: underline;
   text-underline-offset: .35rem;
 }
-
-.mobile-nav .accordion-button { font-size: 1rem; }
-.mobile-nav .accordion-button:not(.collapsed) { background-color: transparent; box-shadow: none; }
 
 /* ------------------------------------------------------------------ accordion -- */
 

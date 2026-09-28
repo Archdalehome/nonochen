@@ -1,7 +1,7 @@
 /**
  * All D1 access lives here so the renderers can stay declarative.
  *
- * Reads that every page needs (settings, navigation, sections) are memoised for
+ * Reads that every page needs (settings, menus, sections) are memoised for
  * `TTL` inside the isolate; the admin endpoints call `invalidate()` after a
  * write so the change shows up immediately.
  */
@@ -74,41 +74,13 @@ export const saveSetting = async (db, key, value) => {
   invalidate('settings');
 };
 
-/* ------------------------------------------------------------- navigation ---- */
+/* ------------------------------------------------------------------ menus ---- */
 
-export const navigation = (db, location = 'header') =>
-  memo(`menu:${location}`, async () => {
-    const { results } = await db
-      .prepare(
-        `SELECT id, parent_id, kind, column_no, group_label, label, url, image, badge, sort_order
-           FROM menu_items
-          WHERE location = ? AND enabled = 1
-          ORDER BY sort_order, id`
-      )
-      .bind(location)
-      .all();
-
-    const rows = results || [];
-    const children = groupBy(rows, 'parent_id');
-    const roots = rows.filter((row) => row.parent_id === null);
-
-    return roots.map((root) => {
-      const kids = children.get(root.id) || [];
-      const columns = kids
-        .filter((row) => row.kind === 'column_heading')
-        .map((column) => ({
-          ...column,
-          links: (children.get(column.id) || []).filter((row) => row.kind === 'link'),
-        }));
-      return {
-        ...root,
-        columns,
-        promos: kids.filter((row) => row.kind === 'promo'),
-        links: kids.filter((row) => row.kind === 'link'),
-      };
-    });
-  });
-
+/**
+ * The link columns the footer repeats on every page. The header menu used to be
+ * read from `menu_items` too; the mobile drawer shows the managed categories
+ * instead, so nothing else reads that location any more.
+ */
 export const footerGroups = (db) =>
   memo('menu:footer-groups', async () => {
     const { results } = await db

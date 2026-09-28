@@ -34,7 +34,13 @@ export const categoryNav = (list = [], path = '') => {
 
 /* ------------------------------------------------------------------ mobile ---- */
 
-export const mobileNav = (nav, categories = [], path = '') => html`
+/**
+ * The phone drawer. It is deliberately small: the categories managed in /admin
+ * (the same list the desktop header row shows) and the three links that sit at
+ * the bottom of it. The scraped `menu_items` tree that used to fill the middle -
+ * thirty-odd collection links nobody chose - is not rendered anywhere.
+ */
+export const mobileNav = (categories = [], path = '') => html`
   <div class="offcanvas offcanvas-start mobile-nav" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
     <div class="offcanvas-header border-bottom">
       <span class="heading-font text-uppercase h5 mb-0" id="offcanvasNavbarLabel">Menu</span>
@@ -49,35 +55,7 @@ export const mobileNav = (nav, categories = [], path = '') => html`
             </ul>
           </nav>`
         : ''}
-      <div class="accordion accordion-flush w-100" id="mobileNavAccordion">
-        ${nav.map((item, index) =>
-          item.columns.length
-            ? html`<div class="accordion-item border-bottom">
-                <h6 class="accordion-header" id="mobile-heading-${index}">
-                  <button class="accordion-button collapsed px-0 fs-6" type="button" data-bs-toggle="collapse" data-bs-target="#mobile-collapse-${index}" aria-expanded="false" aria-controls="mobile-collapse-${index}">
-                    ${item.label}
-                  </button>
-                </h6>
-                <div id="mobile-collapse-${index}" class="accordion-collapse collapse" aria-labelledby="mobile-heading-${index}" data-bs-parent="#mobileNavAccordion">
-                  <div class="accordion-body px-0 pt-0">
-                    <a href="${item.url}" class="d-block mb-3 fw-medium text-decoration-underline">Shop all ${item.label}</a>
-                    ${item.columns.map(
-                      (column) => html`<div class="mb-3">
-                        <p class="fs-8 text-uppercase text-secondary mb-2">${column.heading}</p>
-                        ${column.links.map(
-                          (link) => html`<a href="${link.url || '#'}" class="d-block mb-2 fs-7 text-reset">${link.label}</a>`
-                        )}
-                      </div>`
-                    )}
-                  </div>
-                </div>
-              </div>`
-            : html`<div class="border-bottom py-3">
-                <a href="${item.url || '#'}" class="fs-6 text-reset text-decoration-none">${item.label}</a>
-              </div>`
-        )}
-      </div>
-      <div class="mt-4 d-flex flex-column gap-3 fs-7">
+      <div class="mt-auto pt-4 d-flex flex-column gap-3 fs-7">
         <a class="text-reset" href="/search">Search</a>
         <a class="text-reset" href="/pages/contact-details">Contact Details</a>
         <a class="text-reset" href="/pages/store-locator">Store Locator</a>
@@ -87,7 +65,7 @@ export const mobileNav = (nav, categories = [], path = '') => html`
 
 /* ------------------------------------------------------------------ header ---- */
 
-export const header = (settings, nav, cart, categories = [], path = '') => html`
+export const header = (settings, cart, categories = [], path = '') => html`
   <header class="site-header">
     <div class="site-header__bar">
       ${announcementBar(settings)}
@@ -120,5 +98,5 @@ export const header = (settings, nav, cart, categories = [], path = '') => html`
         </div>
       </nav>
     </div>
-    ${mobileNav(nav, categories, path)}
+    ${mobileNav(categories, path)}
   </header>`;

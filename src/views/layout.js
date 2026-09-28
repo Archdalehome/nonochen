@@ -5,12 +5,12 @@ import { cartDrawer } from './cart-drawer.js';
 
 /**
  * Full document shell. Every route renders its own `body` fragment and hands it
- * to this function, which wraps it in the announcement bar, navigation, footer
- * and cart drawer that the original Shopify theme repeats on every page.
+ * to this function, which wraps it in the announcement bar, the header, the
+ * footer and the cart drawer that the original Shopify theme repeats on every
+ * page.
  */
 export const layout = ({
   settings,
-  nav,
   groups,
   cart,
   categories = [],
@@ -51,7 +51,7 @@ export const layout = ({
     ${jsonLd ? html`<script type="application/ld+json">${safe(JSON.stringify(jsonLd))}</script>` : ''}
   </head>
   <body class="d-flex flex-column min-vh-100 ${bodyClass}">
-    ${header(settings, nav, cart, categories, path)}
+    ${header(settings, cart, categories, path)}
     <main class="flex-grow-1" id="main">${body}</main>
     ${footer(settings, groups, symbol)}
     ${cartDrawer(settings, cart, symbol)}

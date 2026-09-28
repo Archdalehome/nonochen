@@ -110,9 +110,11 @@ can also be started by hand from the Actions tab (or `gh workflow run deploy.yml
    `/collections`, `/cart`, `/cart/drawer`, `/search`, `sitemap.xml`,
    `robots.txt`, the CSS/JS assets and `/images/*` all have to answer, the cart
    round trip has to work against the real D1, the product categories have to
-   render in the header row and in the mobile menu and one of their links has to
-   answer (that check retries for up to a minute, because the edge can serve the
-   release that was live a moment earlier), and the admin area has to sign in
+   render in the header row and at the top of the mobile drawer - which holds
+   nothing else but the Search / Contact Details / Store Locator links - and one
+   of their links has to answer (that check retries for up to a minute, because
+   the edge can serve the release that was live a moment earlier), and the admin
+   area has to sign in
    with `SMOKE_ADMIN_USER` /
    `SMOKE_ADMIN_PASSWORD`,
    add a hidden `smoke-<timestamp>` category, reject a duplicate slug and a bad
@@ -149,8 +151,10 @@ so two quick pushes queue up instead of racing each other. Until
 ## Admin (`/admin`)
 
 A small admin area manages the **product categories**: the row of links in the
-header, next to the logo and the search/cart icons, on every page (they are
-listed at the top of the mobile menu as well).
+header, next to the logo and the search/cart icons, on every page. The mobile
+drawer shows that same list above its three fixed links - **Search**, **Contact
+Details** and **Store Locator**; the menu tree that came in with the Shopify
+import is not rendered anywhere.
 
 * `/admin/login` - sign in with **admin / admin** (see below to change it)
 * `/admin/categories` - add, rename, reorder, hide and delete categories
