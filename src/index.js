@@ -6,6 +6,7 @@ import {
   allCategories,
   categories,
   categoryBySlug,
+  categoryOfProduct,
   categorySlugTaken,
   collection,
   collectionHandles,
@@ -238,9 +239,9 @@ const productRoute = async (request, env, ctx, handle) => {
   const product = await productByHandle(env.DB, handle);
   if (!product) return notFound(ctx, 'That product is no longer available.');
 
-  const [related, parent] = await Promise.all([
+  const [related, category] = await Promise.all([
     relatedProducts(env.DB, product, 4),
-    product.collection_handle ? collection(env.DB, product.collection_handle) : null,
+    categoryOfProduct(env.DB, product),
   ]);
   const symbol = ctx.symbol;
   const title = product.seo_title || product.title;
@@ -251,7 +252,7 @@ const productRoute = async (request, env, ctx, handle) => {
     description: product.seo_description || product.summary,
     canonical: new URL(`/products/${product.handle}`, request.url).toString(),
     image: product.image,
-    body: productView({ product, related, settings: ctx.settings, symbol, collectionTitle: parent ? parent.title : '' }),
+    body: productView({ product, related, settings: ctx.settings, symbol, category }),
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'Product',

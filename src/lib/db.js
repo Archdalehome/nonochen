@@ -742,6 +742,29 @@ export const productCategoryIndex = async (db) => {
 };
 
 /**
+ * The category a product detail page names in its breadcrumb.
+ *
+ * A product that was filed under a category - created from it, or added to it in
+ * /admin - carries that category in `cat_handle` / `cat_label`, so the same match
+ * that decides ownership above decides the crumb. Only when no category claims
+ * the product do the seeded rows' legacy fields fall back to the category that
+ * owns the product's collection: a curated `product_collections` list is not a
+ * category, but in the seeded catalogue the two line up. Hidden categories are
+ * skipped on purpose - the storefront must never link a shopper at a page that
+ * would 404 them. Returns the hydrated category row or `null`.
+ */
+export const categoryOfProduct = async (db, product) => {
+  if (!product) return null;
+  const list = (await categories(db)).filter((item) => item.filterType !== 'all' && item.filterValue);
+  const collection = String(product.collection_handle || '').toLowerCase();
+  return (
+    list.find((item) => tagMatches(product, item)) ||
+    list.find((item) => String(item.filterValue).toLowerCase() === collection) ||
+    null
+  );
+};
+
+/**
  * Puts a product that has no category yet into the one the admin is looking at:
  *
  *   the product's own category fields (tag handle and label) become this

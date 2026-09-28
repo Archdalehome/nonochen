@@ -210,6 +210,87 @@ for (const expected of adminMarkup) {
   if (!admin.includes(expected)) failures.push(`views: the category admin screen is missing ${expected}`);
 }
 
+// The product detail page reads *Home / the category the product was filed under
+// in /admin / the product*. `categoryOfProduct` matches the product's own category
+// fields first - the same match `productCategoryIndex` uses to decide which
+// category owns a product - and only falls back to the category that owns the
+// product's collection, so the seeded catalogue still gets a crumb. A
+// `/collections/<handle>` in the middle is what the shop reported as the wrong
+// category: a curated collection is not ownership.
+const [{ categoryOfProduct, invalidate }, { productView: productPage }] = await Promise.all([
+  import(new URL('src/lib/db.js', root).href),
+  import(new URL('src/views/product.js', root).href),
+]);
+invalidate('categories'); // the 30 second memo lives per isolate - start from an empty cache
+
+const categoryRows = [
+  { id: 1, slug: 'pets-range', name: 'Pets Range', url: '', filter_type: 'collection', filter_value: 'pets-range', position: 1, enabled: 1 },
+  { id: 2, slug: 'accessories', name: 'Accessories', url: '/collections/accessories', filter_type: 'tag', filter_value: 'accessories', position: 2, enabled: 1 },
+  { id: 3, slug: 'everything', name: 'Everything', url: '', filter_type: 'all', filter_value: '', position: 3, enabled: 1 },
+  { id: 4, slug: 'hidden', name: 'Hidden Range', url: '', filter_type: 'collection', filter_value: 'secret', position: 4, enabled: 0 },
+];
+// `categories()` asks for the rows the header shows (`WHERE enabled = 1`), so the
+// stub answers that query the way D1 would - the disabled row stays out of it.
+const stubDb = {
+  prepare: (sql) => ({
+    all: async () => ({
+      results: /enabled = 1/.test(sql) ? categoryRows.filter((row) => row.enabled === 1) : categoryRows,
+    }),
+  }),
+};
+
+const filedProduct = {
+  id: 9,
+  handle: 'b-blanket-grey',
+  title: 'B-Blanket Grey',
+  price: 129,
+  image: '/images/placeholder.png',
+  media: [],
+  colours: [],
+  sizes: [],
+  specs: [],
+  features: [],
+  cat_handle: 'accessories',
+  cat_label: 'Accessories',
+  collection_handle: 'b-blanket',
+};
+
+const filed = await categoryOfProduct(stubDb, filedProduct);
+if (!filed || filed.name !== 'Accessories') failures.push('db: categoryOfProduct ignored the product category fields');
+if (filed && filed.href !== '/collections/accessories') {
+  failures.push('db: categoryOfProduct ignored the category link override');
+}
+
+const byCollection = await categoryOfProduct(stubDb, {
+  ...filedProduct,
+  cat_handle: 'indoor-range',
+  cat_label: 'Indoor Range',
+  collection_handle: 'pets-range',
+});
+if (!byCollection || byCollection.name !== 'Pets Range') {
+  failures.push('db: categoryOfProduct did not fall back to the category that owns the collection');
+}
+const hidden = await categoryOfProduct(stubDb, { ...filedProduct, cat_handle: '', cat_label: '', collection_handle: 'secret' });
+if (hidden !== null) failures.push('db: categoryOfProduct should skip a category the header hides');
+const orphan = await categoryOfProduct(stubDb, { ...filedProduct, cat_handle: '', cat_label: '', collection_handle: 'gone' });
+if (orphan !== null) failures.push('db: categoryOfProduct invented a category for a product that has none');
+
+const detail = render(productPage({ product: filedProduct, settings: {}, symbol: '£', category: filed }));
+if (!detail.includes('<a class="text-secondary" href="/">Home</a>')) {
+  failures.push('views: the product breadcrumb did not start at Home');
+}
+if (!detail.includes('<a class="text-secondary" href="/collections/accessories">Accessories</a>')) {
+  failures.push('views: the product breadcrumb did not name the category and its link');
+}
+if (detail.includes('/collections/b-blanket')) {
+  failures.push('views: the product breadcrumb still points at the product collection');
+}
+const looseProduct = render(productPage({ product: filedProduct, settings: {}, symbol: '£' }));
+if (!looseProduct.includes('<a class="text-secondary" href="/products">Shop</a>')) {
+  failures.push('views: a product without a category should breadcrumb through Shop');
+}
+
+
 // 5. the category form rules behind those screens
 const valid = normalizeCategory({ name: 'Outdoor  Bean Bags', slug: '', url: '', filter_type: 'tag', enabled: '1' });
 if (valid.error) failures.push(`admin: a valid category was rejected (${valid.error})`);

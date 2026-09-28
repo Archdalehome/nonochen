@@ -67,11 +67,13 @@ await check('/migrations/0001_schema.sql', { expect: 404 });
 /* dynamic routes from the seeded data ----------------------------------- */
 const products = await check('/products');
 const handle = (products.body.match(/\/products\/([a-z0-9-]+)/) || [])[1];
+// Kept for the breadcrumb check below, which needs it next to the category list.
+let detailBody = '';
 if (!handle) {
   failures++;
   console.log('FAIL no product handle found on /products');
 } else {
-  await check(`/products/${handle}`, { contains: [handle] });
+  detailBody = (await check(`/products/${handle}`, { contains: [handle] })).body;
 }
 
 // The first collection *card* on /collections: the header and the drawer link to
@@ -158,19 +160,55 @@ if (missingBlocks.length) {
   failures++;
   console.log(`FAIL the homepage blocks are out of order (${blockAt.join(', ')})`);
 }
-const categoryLinks = [
-  ...new Set(
-    (homeBody.match(/<a[^>]+class="[^"]*header-categories__link[^"]*"[^>]*>/g) || [])
-      .map((tag) => (tag.match(/href="([^"]+)"/) || [])[1])
-      .filter(Boolean)
-  ),
-];
+// The categories as the header lists them - link -> name. The product detail
+// breadcrumb below has to name one of these, so the label matters as well.
+const headerCategories = new Map(
+  (homeBody.match(/<a[^>]+class="[^"]*header-categories__link[^"]*"[^>]*>[^<]*<\/a>/g) || [])
+    .map((tag) => [
+      (tag.match(/href="([^"]+)"/) || [])[1],
+      ((tag.match(/>([^<]*)<\/a>$/) || [])[1] || '').trim(),
+    ])
+    .filter(([href]) => Boolean(href))
+);
+const categoryLinks = [...headerCategories.keys()];
 if (!categoryLinks.length) console.log('     note: no categories in the header yet');
 for (const href of categoryLinks) {
   const { res } = await check(href);
   const status = res ? res.status : 0;
   if (status !== 200) {
     console.log(`     note: ${href} is a link set in /admin/categories - point its Link override at a page that exists`);
+  }
+}
+
+// The product detail page reads *Home / the category it was filed under in /admin
+// / the product*, so the middle crumb has to be one of the categories above,
+// named and linked the way the header names it. Loading the product's own
+// collection there - the `/collections/<handle>` that shipped - is the bug this
+// guards against, and a product that merely sits in a collection does not pass.
+if (!handle) {
+  // the /products check above has already failed this run
+} else if (!categoryLinks.length) {
+  console.log('     note: no categories in the header, so the product breadcrumb is not checked');
+} else {
+  const nav = (detailBody.match(/<nav aria-label="breadcrumb"[\s\S]*?<\/nav>/) || [''])[0].replace(/\s+/g, ' ');
+  const trail = [...nav.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([^<]*)<\/a>/g)].map((match) => ({
+    href: match[1],
+    label: match[2].trim(),
+  }));
+  const [home, crumb] = trail;
+  if (trail.length !== 2 || !home || home.href !== '/') {
+    failures++;
+    console.log(`FAIL the breadcrumb on /products/${handle} is not Home / <category> / <product>`);
+  } else if (!headerCategories.has(crumb.href)) {
+    failures++;
+    console.log(
+      `FAIL the breadcrumb on /products/${handle} names "${crumb.label}" (${crumb.href}), which is not one of the categories in the header`
+    );
+  } else if (headerCategories.get(crumb.href) !== crumb.label) {
+    failures++;
+    console.log(
+      `FAIL the breadcrumb on /products/${handle} says "${crumb.label}" where the header calls ${crumb.href} "${headerCategories.get(crumb.href)}"`
+    );
   }
 }
 

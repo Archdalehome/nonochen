@@ -240,6 +240,14 @@ another category already holds cannot be added again: the picker locks it and th
 action answers `?error=product-taken`, and *Remove from this category* sets it
 free. The `product_collections` rows are curated lists rather than ownership, so
 the seeded products stay in every collection they were imported into.
+The product detail page reads the same ownership: its breadcrumb is *Home / the
+category / the product*, and the middle crumb is named and linked exactly like the
+category in the header. A product whose seeded `collection_handle` points somewhere
+else still shows the category it was filed under, because a collection is not a
+category; the collection only decides the crumb when no category claims the product
+at all, and a hidden category never does (`categoryOfProduct` in `src/lib/db.js`).
+`npm run smoke` fails a release whose product breadcrumb names anything but one of
+the header categories.
 
 Both writes invalidate the Worker's 30 second product cache, so the storefront
 shows the change on its next request. A category lists at most 200 products on

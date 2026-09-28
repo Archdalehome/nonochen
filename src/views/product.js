@@ -147,15 +147,19 @@ const accordion = (product, settings) => html`
 
 /* -------------------------------------------------------------- full page ---- */
 
-export const productView = ({ product, related = [], settings, symbol = '£', collectionTitle = '' }) => html`
+export const productView = ({ product, related = [], settings, symbol = '£', category = null }) => {
+  // Home / the category this product was filed under in /admin / the product.
+  // The crumb comes from `categoryOfProduct`, never from the product's own
+  // collection: a product can sit in a curated list that is not its category.
+  const trail = [
+    { label: 'Home', url: '/' },
+    category ? { label: category.name, url: category.href } : { label: 'Shop', url: '/products' },
+    { label: product.short_title || product.title },
+  ];
+
+  return html`
   <div class="container pt-3">
-    ${breadcrumbs([
-      { label: 'Home', url: '/' },
-      product.collection_handle
-        ? { label: collectionTitle || product.cat_label || 'Shop', url: `/collections/${product.collection_handle}` }
-        : { label: 'Shop', url: '/products' },
-      { label: product.short_title || product.title },
-    ])}
+    ${breadcrumbs(trail)}
   </div>
 
   <section class="product-page pt-3 pb-4">
@@ -204,3 +208,4 @@ export const productView = ({ product, related = [], settings, symbol = '£', co
         </div>
       </section>`
     : ''}`;
+};
