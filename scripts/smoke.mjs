@@ -81,7 +81,9 @@ if (collection) await check(`/collections/${collection}`);
 /* admin ------------------------------------------------------------------ */
 
 // The product categories have to sit in the header row (with the logo, the
-// search and the cart) and in the mobile menu, and one of them must answer.
+// search and the cart) and in the mobile menu, and every link among them has to
+// answer: they come from /admin, so a Link override pointing at a page that does
+// not exist is a 404 in the header and in the drawer.
 // `wrangler deploy` returns before every edge serves the new release, so the
 // deploy workflow asks for retries (SMOKE_HEADER_ATTEMPTS) rather than reading
 // the previous markup as a regression. Locally this is a single request.
@@ -126,9 +128,21 @@ if (!placed.menuClean) {
   failures++;
   console.log('FAIL the mobile menu still renders the scraped menu items');
 }
-const categoryLink = (homeBody.match(/<a[^>]+href="([^"]+)"[^>]+class="[^"]*header-categories__link/) || [])[1];
-if (categoryLink) await check(categoryLink);
-else console.log('     note: no categories in the header yet');
+const categoryLinks = [
+  ...new Set(
+    (homeBody.match(/<a[^>]+class="[^"]*header-categories__link[^"]*"[^>]*>/g) || [])
+      .map((tag) => (tag.match(/href="([^"]+)"/) || [])[1])
+      .filter(Boolean)
+  ),
+];
+if (!categoryLinks.length) console.log('     note: no categories in the header yet');
+for (const href of categoryLinks) {
+  const { res } = await check(href);
+  const status = res ? res.status : 0;
+  if (status !== 200) {
+    console.log(`     note: ${href} is a link set in /admin/categories - point its Link override at a page that exists`);
+  }
+}
 
 console.log('\nadmin');
 // The Worker falls back to admin/admin; SMOKE_ADMIN_* follow a custom password

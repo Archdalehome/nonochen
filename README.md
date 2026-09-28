@@ -111,8 +111,8 @@ can also be started by hand from the Actions tab (or `gh workflow run deploy.yml
    `robots.txt`, the CSS/JS assets and `/images/*` all have to answer, the cart
    round trip has to work against the real D1, the product categories have to
    render in the header row and at the top of the mobile drawer - which holds
-   nothing else but the Search / Contact Details / Store Locator links - and one
-   of their links has to answer (that check retries for up to a minute, because
+   nothing else but the Search / Contact Details / Store Locator links - and every
+   one of their links has to answer (those checks retry for up to a minute, because
    the edge can serve the release that was live a moment earlier), and the admin
    area has to sign in
    with `SMOKE_ADMIN_USER` /
