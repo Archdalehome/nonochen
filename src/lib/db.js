@@ -113,6 +113,162 @@ export const footerGroups = (db) =>
       .map((group) => ({ ...group, links: children.get(group.id) || [] }));
   });
 
+/* ------------------------------------------------------------- footer menu ---- */
+
+const FOOTER_MENU_COLUMNS = 'id, parent_id, kind, label, url, sort_order, enabled';
+
+const hydrateFooterRow = (row) => ({ ...row, enabled: Boolean(row.enabled) });
+
+/**
+ * The footer's columns as /admin/footer edits them: uncached on purpose (the
+ * screen has to see its own writes) and hidden rows included, so a column that
+ * was switched off stays editable instead of turning into a dead end.
+ * `footerGroups()` above is the storefront's read only view of the same rows.
+ */
+export const footerMenu = async (db) => {
+  const { results } = await db
+    .prepare(`SELECT ${FOOTER_MENU_COLUMNS} FROM menu_items WHERE location = 'footer' ORDER BY sort_order, id`)
+    .all();
+  const rows = results || [];
+  const children = groupBy(rows, 'parent_id');
+  return rows
+    .filter((row) => row.kind === 'group_heading')
+    .map((group) => ({ ...hydrateFooterRow(group), links: (children.get(group.id) || []).map(hydrateFooterRow) }));
+};
+
+/** One footer row of a given kind, or null when that id is not one. */
+const footerRow = async (db, id, kind) => {
+  const row = await db
+    .prepare(`SELECT ${FOOTER_MENU_COLUMNS} FROM menu_items WHERE id = ? AND location = 'footer' AND kind = ?`)
+    .bind(Number(id) || 0, kind)
+    .first();
+  return row ? hydrateFooterRow(row) : null;
+};
+
+export const footerGroupById = (db, id) => footerRow(db, id, 'group_heading');
+export const footerLinkById = (db, id) => footerRow(db, id, 'link');
+
+/** The next free slot among the footer's columns, or among one column's links. */
+const nextFooterOrder = async (db, parentId = null) => {
+  const statement = parentId
+    ? db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM menu_items WHERE parent_id = ?').bind(Number(parentId) || 0)
+    : db.prepare("SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM menu_items WHERE location = 'footer' AND parent_id IS NULL");
+  const row = await statement.first();
+  return (row && row.next) || 1;
+};
+
+export const createFooterGroup = async (db, values) => {
+  const order = Number.isFinite(values.position) ? values.position : await nextFooterOrder(db);
+  await db
+    .prepare(
+      `INSERT INTO menu_items (location, parent_id, kind, column_no, group_label, label, url, image, badge, sort_order, enabled)
+       VALUES ('footer', NULL, 'group_heading', 1, NULL, ?1, '', NULL, NULL, ?2, ?3)`
+    )
+    .bind(values.label, order, values.enabled)
+    .run();
+  invalidate('menu:');
+};
+
+/**
+ * Renames one column. The links under it carry the heading in `group_label`
+ * (that is how the seed writes them too), so they are kept in step - the
+ * storefront reads the heading from the row above them either way.
+ */
+export const updateFooterGroup = async (db, id, values) => {
+  const key = Number(id) || 0;
+  await db
+    .prepare(
+      `UPDATE menu_items SET label = ?1, sort_order = COALESCE(?2, sort_order), enabled = ?3
+        WHERE id = ?4 AND location = 'footer' AND kind = 'group_heading'`
+    )
+    .bind(values.label, values.position, values.enabled, key)
+    .run();
+  await db.prepare('UPDATE menu_items SET group_label = ?1 WHERE parent_id = ?2').bind(values.label, key).run();
+  invalidate('menu:');
+};
+
+/** Deletes a column along with the links under it. */
+export const deleteFooterGroup = async (db, id) => {
+  const key = Number(id) || 0;
+  await db.prepare('DELETE FROM menu_items WHERE parent_id = ?').bind(key).run();
+  const result = await db
+    .prepare("DELETE FROM menu_items WHERE id = ? AND location = 'footer' AND kind = 'group_heading'")
+    .bind(key)
+    .run();
+  invalidate('menu:');
+  return Boolean(result.meta && result.meta.changes);
+};
+
+/** Adds one link to a column. A parent that is not a column writes nothing. */
+export const createFooterLink = async (db, values) => {
+  const order = Number.isFinite(values.position) ? values.position : await nextFooterOrder(db, values.parentId);
+  const result = await db
+    .prepare(
+      `INSERT INTO menu_items (location, parent_id, kind, column_no, group_label, label, url, image, badge, sort_order, enabled)
+       SELECT 'footer', g.id, 'link', 1, g.label, ?1, ?2, NULL, NULL, ?3, ?4
+         FROM menu_items g
+        WHERE g.id = ?5 AND g.kind = 'group_heading' AND g.location = 'footer'`
+    )
+    .bind(values.label, values.url, order, values.enabled, Number(values.parentId) || 0)
+    .run();
+  invalidate('menu:');
+  return Boolean(result.meta && result.meta.changes);
+};
+
+export const updateFooterLink = async (db, id, values) => {
+  const result = await db
+    .prepare(
+      `UPDATE menu_items SET label = ?1, url = ?2, sort_order = COALESCE(?3, sort_order), enabled = ?4
+        WHERE id = ?5 AND location = 'footer' AND kind = 'link'`
+    )
+    .bind(values.label, values.url, values.position, values.enabled, Number(id) || 0)
+    .run();
+  invalidate('menu:');
+  return Boolean(result.meta && result.meta.changes);
+};
+
+export const deleteFooterLink = async (db, id) => {
+  const result = await db
+    .prepare("DELETE FROM menu_items WHERE id = ? AND location = 'footer' AND kind = 'link'")
+    .bind(Number(id) || 0)
+    .run();
+  invalidate('menu:');
+  return Boolean(result.meta && result.meta.changes);
+};
+
+/**
+ * Moves one row one step up or down inside its list and renumbers that list
+ * 1..n, the way `moveCategory` renumbers the header row.
+ */
+const reorderFooterRows = async (db, list, id, direction) => {
+  const index = list.findIndex((item) => item.id === Number(id));
+  if (index < 0) return false;
+  const neighbour = direction === 'up' ? index - 1 : index + 1;
+  if (neighbour < 0 || neighbour >= list.length) return false;
+
+  const reordered = [...list];
+  const [moved] = reordered.splice(index, 1);
+  reordered.splice(neighbour, 0, moved);
+  await db.batch(
+    reordered.map((item, order) => db.prepare('UPDATE menu_items SET sort_order = ? WHERE id = ?').bind(order + 1, item.id))
+  );
+  invalidate('menu:');
+  return true;
+};
+
+/** Swaps one column with its neighbour. */
+export const moveFooterGroup = async (db, id, direction) =>
+  reorderFooterRows(db, await footerMenu(db), id, direction);
+
+/** Swaps one link with its neighbour inside the same column. */
+export const moveFooterLink = async (db, id, direction) => {
+  const link = await footerLinkById(db, id);
+  if (!link) return false;
+  const groups = await footerMenu(db);
+  const parent = groups.find((group) => group.id === link.parent_id);
+  return reorderFooterRows(db, (parent && parent.links) || [], id, direction);
+};
+
 /* --------------------------------------------------------------- content ---- */
 
 export const sections = (db, page = 'home') =>

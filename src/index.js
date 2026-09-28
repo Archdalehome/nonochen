@@ -14,8 +14,19 @@ import {
   createProduct,
   deleteCategory,
   deleteProduct,
+  createFooterGroup,
+  createFooterLink,
+  deleteFooterGroup,
+  deleteFooterLink,
+  footerGroupById,
   footerGroups,
+  footerLinkById,
+  footerMenu,
   moveCategory,
+  moveFooterGroup,
+  moveFooterLink,
+  updateFooterGroup,
+  updateFooterLink,
   pageSections,
   productByHandle,
   productById,
@@ -42,6 +53,8 @@ import {
   mediaKey,
   normalizeAnnouncement,
   normalizeCategory,
+  normalizeFooterGroup,
+  normalizeFooterLink,
   normalizeHero,
   normalizeProduct,
   safeNext,
@@ -64,7 +77,7 @@ import { SORTS, collectionIndex, collectionView } from './views/collection.js';
 import { productView } from './views/product.js';
 import { cartPage, checkoutPage, thankYouPage } from './views/cart.js';
 import { contentPage, searchPage } from './views/pages.js';
-import { adminNotFound, adminPage, categoriesView, categoryProductsView, homeView, loginView } from './views/admin.js';
+import { adminNotFound, adminPage, categoriesView, categoryProductsView, footerView, homeView, loginView } from './views/admin.js';
 import { cartDrawerContent } from './views/cart-drawer.js';
 
 /* --------------------------------------------------------------- responses ---- */
@@ -419,6 +432,31 @@ const HOME_NOTICES = {
   },
 };
 
+/**
+ * And for `/admin/footer`, which writes the link columns at the bottom of every
+ * page. The keys are prefixed with the form they come from, so a `?flash=` from
+ * one screen can never read oddly on another.
+ */
+const FOOTER_NOTICES = {
+  'group-created': { kind: 'success', message: 'Column added - the footer shows it from its next request on.' },
+  'group-saved': { kind: 'success', message: 'Column saved.' },
+  'group-moved': { kind: 'success', message: 'Column order updated.' },
+  'group-deleted': { kind: 'success', message: 'Column deleted, along with the links in it.' },
+  'group-heading': { kind: 'danger', message: 'A footer column needs a heading, for example Company.' },
+  'group-missing': { kind: 'danger', message: 'That footer column could not be found.' },
+  'link-created': { kind: 'success', message: 'Link added - the footer shows it from its next request on.' },
+  'link-saved': { kind: 'success', message: 'Link saved.' },
+  'link-moved': { kind: 'success', message: 'Link order updated.' },
+  'link-deleted': { kind: 'success', message: 'Link deleted.' },
+  'link-label': { kind: 'danger', message: 'A footer link needs the text that is shown on the site.' },
+  'link-url': {
+    kind: 'danger',
+    message: 'Footer links have to start with "/" (for example /pages/about), be a full https:// URL or a mailto: address.',
+  },
+  'link-missing': { kind: 'danger', message: 'That footer link could not be found.' },
+  'location-saved': { kind: 'success', message: 'Location heading saved.' },
+};
+
 const adminNotice = (url, notices = ADMIN_NOTICES) => {
   const key = url.searchParams.get('error') || url.searchParams.get('flash') || '';
   return notices[key] || null;
@@ -604,6 +642,95 @@ const adminHeroSave = async (request, env) => {
   return redirect(saved ? '/admin/home?flash=hero-saved' : '/admin/home?error=hero-missing');
 };
 
+/* ---------------------------------------------------------------- footer ---- */
+
+/**
+ * `/admin/footer` writes the same `menu_items` rows the storefront renders, one
+ * handler per form on the screen. Every write invalidates the cached footer, so
+ * the change shows up on the next request.
+ */
+const footerRedirect = (query = '') => redirect(`/admin/footer${query ? `?${query}` : ''}`);
+
+const adminFooterPage = async (request, env, user) => {
+  const [groups, siteSettings] = await Promise.all([footerMenu(env.DB), loadSettings(env.DB)]);
+  return adminResponse({
+    env,
+    user,
+    title: 'Footer',
+    body: footerView({ groups, settings: siteSettings }),
+    flash: adminNotice(new URL(request.url), FOOTER_NOTICES),
+  });
+};
+
+const adminFooterGroupCreate = async (request, env) => {
+  const { error, values } = normalizeFooterGroup(await readForm(request));
+  if (error) return footerRedirect('error=group-heading');
+  await createFooterGroup(env.DB, values);
+  return footerRedirect('flash=group-created');
+};
+
+const adminFooterGroupSave = async (request, env) => {
+  const data = await readForm(request);
+  const id = Number(data.id) || 0;
+  if (!id || !(await footerGroupById(env.DB, id))) return footerRedirect('error=group-missing');
+  const { error, values } = normalizeFooterGroup(data);
+  if (error) return footerRedirect('error=group-heading');
+  await updateFooterGroup(env.DB, id, values);
+  return footerRedirect('flash=group-saved');
+};
+
+const adminFooterGroupDelete = async (request, env) => {
+  const id = Number((await readForm(request)).id) || 0;
+  const deleted = id ? await deleteFooterGroup(env.DB, id) : false;
+  return footerRedirect(deleted ? 'flash=group-deleted' : 'error=group-missing');
+};
+
+const adminFooterGroupMove = async (request, env) => {
+  const data = await readForm(request);
+  const moved = await moveFooterGroup(env.DB, Number(data.id) || 0, String(data.direction || ''));
+  return footerRedirect(moved ? 'flash=group-moved' : 'error=group-missing');
+};
+
+const adminFooterLinkCreate = async (request, env) => {
+  const data = await readForm(request);
+  const parentId = Number(data.parent_id) || 0;
+  if (!parentId || !(await footerGroupById(env.DB, parentId))) return footerRedirect('error=group-missing');
+  const { error, values } = normalizeFooterLink(data);
+  if (error) return footerRedirect(`error=link-${error}`);
+  const added = await createFooterLink(env.DB, { ...values, parentId });
+  return footerRedirect(added ? 'flash=link-created' : 'error=group-missing');
+};
+
+const adminFooterLinkSave = async (request, env) => {
+  const data = await readForm(request);
+  const id = Number(data.id) || 0;
+  if (!id || !(await footerLinkById(env.DB, id))) return footerRedirect('error=link-missing');
+  const { error, values } = normalizeFooterLink(data);
+  if (error) return footerRedirect(`error=link-${error}`);
+  const saved = await updateFooterLink(env.DB, id, values);
+  return footerRedirect(saved ? 'flash=link-saved' : 'error=link-missing');
+};
+
+const adminFooterLinkDelete = async (request, env) => {
+  const id = Number((await readForm(request)).id) || 0;
+  const deleted = id ? await deleteFooterLink(env.DB, id) : false;
+  return footerRedirect(deleted ? 'flash=link-deleted' : 'error=link-missing');
+};
+
+const adminFooterLinkMove = async (request, env) => {
+  const data = await readForm(request);
+  const moved = await moveFooterLink(env.DB, Number(data.id) || 0, String(data.direction || ''));
+  return footerRedirect(moved ? 'flash=link-moved' : 'error=link-missing');
+};
+
+/** The heading over the currency picker - a setting, not a column. */
+const adminFooterLocationSave = async (request, env) => {
+  const { error, values } = normalizeFooterGroup(await readForm(request));
+  if (error) return footerRedirect('error=group-heading');
+  await saveSettings(env.DB, { footer_location_heading: values.label });
+  return footerRedirect('flash=location-saved');
+};
+
 /**
  * The products one category lists - the same rows the storefront renders, so
  * the editors below write exactly what `/category/<slug>` (or the header link)
@@ -745,6 +872,19 @@ const adminRoute = async (request, env, path, method) => {
   }
   if (path === '/admin/home/announcement') return isPost ? adminAnnouncementSave(request, env) : methodNotAllowed();
   if (path === '/admin/home/hero') return isPost ? adminHeroSave(request, env) : methodNotAllowed();
+  if (path === '/admin/footer') {
+    if (isPost) return methodNotAllowed();
+    return isGet ? adminFooterPage(request, env, user) : methodNotAllowed();
+  }
+  if (path === '/admin/footer/group') return isPost ? adminFooterGroupCreate(request, env) : methodNotAllowed();
+  if (path === '/admin/footer/group/save') return isPost ? adminFooterGroupSave(request, env) : methodNotAllowed();
+  if (path === '/admin/footer/group/delete') return isPost ? adminFooterGroupDelete(request, env) : methodNotAllowed();
+  if (path === '/admin/footer/group/move') return isPost ? adminFooterGroupMove(request, env) : methodNotAllowed();
+  if (path === '/admin/footer/link') return isPost ? adminFooterLinkCreate(request, env) : methodNotAllowed();
+  if (path === '/admin/footer/link/save') return isPost ? adminFooterLinkSave(request, env) : methodNotAllowed();
+  if (path === '/admin/footer/link/delete') return isPost ? adminFooterLinkDelete(request, env) : methodNotAllowed();
+  if (path === '/admin/footer/link/move') return isPost ? adminFooterLinkMove(request, env) : methodNotAllowed();
+  if (path === '/admin/footer/location') return isPost ? adminFooterLocationSave(request, env) : methodNotAllowed();
   if (path === '/admin/categories/products') {
     return isGet ? adminCategoryProductsPage(request, env, user) : methodNotAllowed();
   }
@@ -982,6 +1122,8 @@ const sitemapRoute = async (request, env) => {
     ...list.map((item) => `/products/${item.handle}`),
     '/pages/delivery',
     '/pages/returns',
+    '/pages/about',
+    '/pages/faq',
     '/pages/contact-details',
     '/pages/store-locator',
     '/pages/privacy',

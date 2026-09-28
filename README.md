@@ -122,7 +122,9 @@ can also be started by hand from the Actions tab (or `gh workflow run deploy.yml
    reject a bad price and a duplicate product slug, edit that product, take it
    out of the category and put it back, open `/admin/home`, save the announcement
    bar and the hero back exactly as the screen showed them (so nothing on the
-   homepage moves) and find both on `/`, delete the product, delete the category
+   homepage moves) and find both on `/`, do the same round trip for the footer
+   columns on `/admin/footer` (whose About and FAQ links have to answer), delete
+   the product, delete the category
    and sign out - all against the live D1 (`/wrangler.jsonc`, `/src/...`,
    `/migrations/...` have to keep returning 404 as well);
 5. if the push touched `images/`, `npm run media:remote` syncs the bucket (a push
@@ -153,9 +155,10 @@ so two quick pushes queue up instead of racing each other. Until
 ## Admin (`/admin`)
 
 A small admin area manages the **product categories** - the row of links in the
-header, next to the logo and the search/cart icons, on every page - and the
-**home page content**: the announcement bar that sits above that header and the
-hero video with the wording and links over it. The mobile drawer shows the same
+header, next to the logo and the search/cart icons, on every page -, the **home
+page content** - the announcement bar that sits above that header and the hero
+video with the wording and links over it - and the **footer columns** under every
+page: the column headings and the links in them. The mobile drawer shows the same
 category list above its three fixed links - **Search**, **Contact Details** and
 **Store Locator**; the menu tree that came in with the Shopify import is not
 rendered anywhere.
@@ -163,6 +166,9 @@ rendered anywhere.
 * `/admin/login` - sign in with **admin / admin** (see below to change it)
 * `/admin/home` - the announcement bar and the hero: its video (a path, a URL or
   an upload), the heading, text and links over it
+* `/admin/footer` - the link columns at the bottom of every page (Company, Follow
+  and Help, plus the heading over the currency picker): rename, reorder, hide and
+  re-fill them
 * `/admin/categories` - add, rename, reorder, hide and delete categories
 * `/admin/categories/products?slug=<slug>` - the products one category lists:
   edit any row, add a product that is already in the shop, create a brand new
@@ -271,6 +277,45 @@ button label removes the button, which makes the whole slide the link. Saving
 invalidates the cached `sections` / `settings` rows exactly like the category
 writes do, so the storefront shows the change on its next request.
 
+### The footer columns
+
+`/admin/footer` edits the columns at the bottom of **every** page - the same rows
+the storefront already renders, so nothing about the layout changes:
+
+* a **column** is a heading plus the links under it. Rename it, move it up or
+  down the row, switch it off (the storefront then drops it, the links stay in
+  the admin) or delete it along with its links;
+* a **link** is the text a shopper reads and the page behind it. Links have to be
+  a path (`/pages/about`), a full `https://` URL or a `mailto:` address - a link
+  that goes nowhere is refused. `https://` links (the socials) open in a new tab,
+  paths stay on the site;
+* the **Location heading** over the currency picker is a setting
+  (`footer_location_heading`), so it is edited here as well. An empty one falls
+  back to `Location`.
+
+The columns are rows in `menu_items` (`location = 'footer'`, one `group_heading`
+per column and one `link` per item under it, which is what the seed writes too)
+and the screen writes them through the same cached reads the storefront uses, so
+a save shows up on the next request. The order field and the arrows do the same
+job: the field writes `sort_order`, the arrows renumber the whole list.
+
+Two things worth knowing:
+
+* the width of a column follows how many of them there are, so the row keeps its
+  shape - two columns read as thirds next to the picker, as they always did, and
+  four (Company, Follow, Help, Location) read as halves on a tablet and quarters
+  on a desktop;
+* the seeded columns are **Company** (About, Contact, FAQ), **Follow**
+  (Instagram, Facebook, TikTok), **Help** (Terms, Privacy, Delivery, Returns) and
+  the currency picker. `migrations/0006_footer.sql` is what puts them there, and
+  it also creates the `page:about` and `page:faq` pages those two Company links
+  need - ordinary content pages, with copy that sticks to what the site already
+  publishes. Point a link somewhere else from this screen and the pages are
+  simply unused.
+
+The social handles in the seeded Follow column point at the platforms' own
+homepages; replace them with your profile URLs.
+
 ### Changing the password
 
 ```bash
@@ -293,6 +338,7 @@ lives in Cloudflare and can be changed without a deploy:
 | --- | --- |
 | the remaining copy, the other homepage blocks, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
 | the announcement bar, the hero video and its wording | `/admin/home` (see above) |
+| the footer columns and the links in them | `/admin/footer` (see above), or the `menu_items` rows with `location = 'footer'` |
 | the header categories | `/admin/categories` (see above), or the `categories` table directly |
 | the products inside a category | `/admin/categories/products?slug=<slug>` (see above), or the `products` / `product_collections` / `product_variants` tables directly |
 | images and video | R2 `el-media` - dashboard -> *R2 -> el-media -> Objects*, or drop files into `./images` and run `npm run media:remote` |

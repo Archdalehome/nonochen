@@ -299,6 +299,91 @@ if (heroId && heroVideo) {
   console.log('     note: the homepage has no hero video - skipping the hero round trip');
 }
 
+// The footer screen edits the link columns the storefront shows. Saving back
+// exactly what the screen just displayed proves the path (form -> menu_items ->
+// footer) without moving anything a shopper sees, so this is safe against
+// production as well.
+const footer = await check('/admin/footer', {
+  init: { headers: admin },
+  contains: ['Footer', 'action="/admin/footer/group"', 'action="/admin/footer/link"', 'action="/admin/footer/location"'],
+});
+/** The markup of one form on that screen, from its action attribute to its close. */
+const formBlock = (body, marker) => {
+  const source = String(body || '');
+  const at = source.indexOf(marker);
+  if (at < 0) return '';
+  const end = source.indexOf('</form>', at);
+  return source.slice(at, end < 0 ? at + 1200 : end);
+};
+
+const columnHeading = inputValue(footer.body, 'label');
+if (columnHeading) {
+  const column = formBlock(footer.body, 'action="/admin/footer/group/save"');
+  const columnId = inputValue(column, 'id');
+  await check('/admin/footer/group/save', {
+    init: {
+      method: 'POST',
+      headers: adminForm,
+      body: adminBody({
+        id: columnId,
+        label: columnHeading,
+        position: inputValue(column, 'position'),
+        enabled: /checked/.test(column) ? '1' : '0',
+      }),
+    },
+    expect: 303,
+    headers: { location: '/admin/footer?flash=group-saved' },
+  });
+  // The heading the screen lists is the one the storefront renders.
+  await check('/', { contains: [columnHeading] });
+  // A column heading with no words is refused instead of stored.
+  await check('/admin/footer/group/save', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ id: columnId, label: '   ' }) },
+    expect: 303,
+    headers: { location: '/admin/footer?error=group-heading' },
+  });
+
+  const link = formBlock(footer.body, 'action="/admin/footer/link/save"');
+  const linkUrl = inputValue(link, 'url');
+  if (linkUrl) {
+    const linkId = inputValue(link, 'id');
+    await check('/admin/footer/link/save', {
+      init: {
+        method: 'POST',
+        headers: adminForm,
+        body: adminBody({
+          id: linkId,
+          label: inputValue(link, 'label'),
+          url: linkUrl,
+          position: inputValue(link, 'position'),
+          enabled: /checked/.test(link) ? '1' : '0',
+        }),
+      },
+      expect: 303,
+      headers: { location: '/admin/footer?flash=link-saved' },
+    });
+    await check('/', { contains: [linkUrl] });
+    // A link that goes nowhere is refused as well.
+    await check('/admin/footer/link/save', {
+      init: {
+        method: 'POST',
+        headers: adminForm,
+        body: adminBody({ id: linkId, label: 'Wherever', url: 'pages/about' }),
+      },
+      expect: 303,
+      headers: { location: '/admin/footer?error=link-url' },
+    });
+  } else {
+    console.log('     note: the first footer column has no links - skipping the link round trip');
+  }
+} else {
+  console.log('     note: the footer has no columns - skipping the footer round trip');
+}
+
+// The pages the Company column links to have to answer.
+await check('/pages/about', {});
+await check('/pages/faq', {});
+
 // The round trip runs on a hidden row whose name carries a timestamp, so a
 // smoke test against production never collides with a parallel run and never
 // disturbs the public bar. It filters on a tag, so the product round trip below

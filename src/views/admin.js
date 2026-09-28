@@ -32,6 +32,7 @@ export const adminHeader = ({ user, siteName }) => html`
       <a href="/admin/categories" class="heading-font text-uppercase text-white text-decoration-none fs-6">${siteName} admin</a>
       <nav class="ms-auto d-flex align-items-center gap-3 fs-7">
         <a href="/admin/home" class="text-white text-decoration-none">Home page</a>
+        <a href="/admin/footer" class="text-white text-decoration-none">Footer</a>
         <a href="/admin/categories" class="text-white text-decoration-none">Categories</a>
         <a href="/" class="text-white text-decoration-none" target="_blank" rel="noopener">View store</a>
         <span class="text-white-50 d-none d-md-inline">Signed in as ${user}</span>
@@ -672,3 +673,240 @@ export const homeView = ({ settings = {}, hero = null, media = true } = {}) => {
         </div>`}
   `;
 };
+
+/* -------------------------------------------------------- footer columns ---- */
+
+/**
+ * The up / down / delete controls each footer row carries. The buttons post on
+ * their own, so reordering or removing one row never touches the others - the
+ * same pattern the category rows use.
+ */
+const rowControls = ({ kind, label, id, index, count, confirm }) => html`
+  <div class="d-flex align-items-center gap-2">
+    <form method="post" action="/admin/footer/${kind}/move" class="mb-0">
+      <input type="hidden" name="id" value="${id}">
+      <input type="hidden" name="direction" value="up">
+      <button class="btn btn-outline-secondary btn-sm rounded px-2" type="submit" ${index === 0 ? safe('disabled') : ''}
+              aria-label="Move ${label} up">&uarr;</button>
+    </form>
+    <form method="post" action="/admin/footer/${kind}/move" class="mb-0">
+      <input type="hidden" name="id" value="${id}">
+      <input type="hidden" name="direction" value="down">
+      <button class="btn btn-outline-secondary btn-sm rounded px-2" type="submit" ${index === count - 1 ? safe('disabled') : ''}
+              aria-label="Move ${label} down">&darr;</button>
+    </form>
+    <form method="post" action="/admin/footer/${kind}/delete" class="mb-0" data-admin-confirm="${confirm}">
+      <input type="hidden" name="id" value="${id}">
+      <button class="btn btn-outline-danger btn-sm rounded px-3" type="submit">Delete</button>
+    </form>
+  </div>`;
+
+/** One link of a column: its words, the page behind it and its place in the list. */
+const footerLinkRow = (link, index, count) => html`
+  <form method="post" action="/admin/footer/link/save" class="border-top pt-3 mt-3">
+    <input type="hidden" name="id" value="${link.id}">
+    <div class="row g-2 align-items-end">
+      ${textField({
+        id: `link-label-${link.id}`,
+        name: 'label',
+        label: 'Link text',
+        value: link.label,
+        col: 'col-12 col-lg-3',
+        attrs: 'maxlength="60" required placeholder="About"',
+      })}
+      ${textField({
+        id: `link-url-${link.id}`,
+        name: 'url',
+        label: 'Link',
+        value: link.url,
+        col: 'col-12 col-lg-5',
+        attrs: 'maxlength="300" required placeholder="/pages/about"',
+      })}
+      ${textField({
+        id: `link-order-${link.id}`,
+        name: 'position',
+        label: 'Order',
+        value: link.sort_order,
+        col: 'col-4 col-lg-1',
+        type: 'number',
+        attrs: 'min="0" max="999"',
+      })}
+      <div class="col-8 col-lg-1">${toggleField({ id: `link-enabled-${link.id}`, name: 'enabled', label: 'Shows', checked: link.enabled })}</div>
+      <div class="col-12 col-lg-2 d-flex justify-content-lg-end">
+        <button class="btn btn-primary btn-sm rounded px-3" type="submit">Save</button>
+      </div>
+    </div>
+  </form>
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
+    <span class="fs-8 text-secondary">
+      ${/^https?:\/\//i.test(link.url) ? 'leaves this site, so it opens in a new tab' : 'a page on this site'}
+      &middot; <a href="${link.url}" target="_blank" rel="noopener">Preview</a>
+    </span>
+    ${rowControls({
+      kind: 'link',
+      id: link.id,
+      label: link.label,
+      index,
+      count,
+      confirm: `Delete "${link.label}"? The link leaves the footer straight away.`,
+    })}
+  </div>`;
+
+
+
+/**
+ * `/admin/footer`: the link columns at the bottom of every page. The columns are
+ * rows in `menu_items` (location = 'footer'), so nothing here decides how they
+ * are laid out - the screen only changes the words, the links and the order.
+ */
+export const footerView = ({ groups = [], settings = {} } = {}) => html`
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+      <h1 class="heading-font text-uppercase h4 mb-1">Footer</h1>
+      <p class="text-secondary fs-7 mb-0">
+        The link columns at the bottom of every page, in the order below. A link that starts with <code>/</code> stays on
+        the site; a full <code>https://</code> URL (the socials) opens in a new tab.
+      </p>
+      <p class="text-secondary fs-8 mb-0">
+        The copyright line and the currency picker are settings, not columns - <code>footer_copyright</code> and
+        <code>country_options</code> live in D1.
+      </p>
+    </div>
+    <span class="fs-7 text-secondary">${groups.length} column${groups.length === 1 ? '' : 's'}</span>
+  </div>
+
+  <section class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body row g-3 align-items-end">
+      <div class="col-12 col-md-8">
+        <h2 class="h6 text-uppercase mb-1">Location heading</h2>
+        <p class="text-secondary fs-7 mb-0">
+          The heading over the currency picker, the last thing in the row of columns.
+        </p>
+      </div>
+      <form method="post" action="/admin/footer/location" class="col-12 col-md-4 m-0 row g-2 align-items-end">
+        ${textField({
+          id: 'location-heading',
+          name: 'heading',
+          label: 'Heading',
+          value: settings.footer_location_heading || 'Location',
+          col: 'col-8',
+          attrs: 'maxlength="40" required',
+        })}
+        <div class="col-4 d-flex justify-content-end">
+          <button class="btn btn-primary btn-sm rounded px-3" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  ${groups.length
+    ? groups.map(
+        (group, index) => html`
+          <section class="card border-0 shadow-sm rounded-3 mb-4">
+            <form method="post" action="/admin/footer/group/save">
+              <input type="hidden" name="id" value="${group.id}">
+              <div class="card-body row g-3">
+                ${textField({
+                  id: `column-heading-${group.id}`,
+                  name: 'label',
+                  label: 'Column heading',
+                  value: group.label,
+                  col: 'col-12 col-lg-5',
+                  attrs: 'maxlength="40" required',
+                })}
+                ${textField({
+                  id: `column-order-${group.id}`,
+                  name: 'position',
+                  label: 'Order',
+                  value: group.sort_order,
+                  col: 'col-6 col-lg-2',
+                  type: 'number',
+                  attrs: 'min="0" max="999"',
+                })}
+                <div class="col-6 col-lg-3">
+                  ${toggleField({ id: `column-enabled-${group.id}`, name: 'enabled', label: 'Shows on the site', checked: group.enabled })}
+                </div>
+                <div class="col-12 col-lg-2 d-flex justify-content-lg-end">
+                  <button class="btn btn-primary btn-sm rounded px-3" type="submit">Save column</button>
+                </div>
+              </div>
+            </form>
+            <div class="card-body pt-0 border-top">
+              ${group.links.length
+                ? group.links.map((link, position) => footerLinkRow(link, position, group.links.length))
+                : html`<p class="fs-7 text-secondary mt-3 mb-0">This column has no links yet.</p>`}
+              <form method="post" action="/admin/footer/link" class="border-top pt-3 mt-3 row g-2 align-items-end">
+                <input type="hidden" name="parent_id" value="${group.id}">
+                ${textField({
+                  id: `new-link-label-${group.id}`,
+                  name: 'label',
+                  label: 'Link text',
+                  col: 'col-12 col-lg-4',
+                  attrs: 'maxlength="60" required placeholder="About"',
+                })}
+                ${textField({
+                  id: `new-link-url-${group.id}`,
+                  name: 'url',
+                  label: 'Link',
+                  col: 'col-12 col-lg-5',
+                  attrs: 'maxlength="300" required placeholder="/pages/about"',
+                })}
+                <div class="col-12 col-lg-3 d-flex align-items-end justify-content-lg-end">
+                  <button class="btn btn-outline-dark btn-sm rounded px-3" type="submit">Add link</button>
+                </div>
+              </form>
+            </div>
+            <div class="card-footer bg-white border-top-0 d-flex flex-wrap align-items-center justify-content-between gap-2 pt-0">
+              <span class="fs-8 text-secondary">
+                ${group.enabled
+                  ? 'Shows in the footer'
+                  : 'Hidden - the column stays here, the storefront drops it until it is switched back on'}
+                &middot; ${group.links.length} link${group.links.length === 1 ? '' : 's'}
+                &middot; add a link to this column with the form above
+              </span>
+              ${rowControls({
+                kind: 'group',
+                id: group.id,
+                label: group.label,
+                index,
+                count: groups.length,
+                confirm: `Delete the "${group.label}" column and every link in it?`,
+              })}
+            </div>
+          </section>`
+      )
+    : html`<div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-body text-center py-5">
+          <h2 class="h5 mb-2">No footer columns yet</h2>
+          <p class="text-secondary fs-7 mb-0">Add one below and it appears at the bottom of every page.</p>
+        </div>
+      </div>`}
+
+  <section class="card border-0 shadow-sm rounded-3">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase mb-3">Add a column</h2>
+      <form method="post" action="/admin/footer/group" class="row g-3">
+        ${textField({
+          id: 'new-column-heading',
+          name: 'label',
+          label: 'Heading',
+          col: 'col-12 col-lg-6',
+          attrs: 'maxlength="40" required placeholder="Company"',
+        })}
+        ${textField({
+          id: 'new-column-order',
+          name: 'position',
+          label: 'Order',
+          col: 'col-6 col-lg-2',
+          type: 'number',
+          attrs: 'min="0" max="999" placeholder="next"',
+        })}
+        <div class="col-6 col-lg-2 d-flex align-items-end">
+          ${toggleField({ id: 'new-column-enabled', name: 'enabled', label: 'Shows', checked: true })}
+        </div>
+        <div class="col-12 col-lg-2 d-flex align-items-end justify-content-lg-end">
+          <button class="btn btn-primary btn-sm rounded px-4" type="submit">Add column</button>
+        </div>
+      </form>
+    </div>
+  </section>`;

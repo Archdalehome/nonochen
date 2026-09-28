@@ -343,6 +343,52 @@ export const normalizeHero = (data, stored = {}) => {
   };
 };
 
+/* ------------------------------------------------------------ footer rules ---- */
+
+/**
+ * The columns at the bottom of every page are rows in `menu_items`
+ * (location = 'footer'), which `views/footer.js` renders and /admin/footer
+ * edits. These rules only police what the forms may store: a heading, the words
+ * of a link and a link that goes somewhere.
+ */
+const FOOTER_ERRORS = {
+  heading: 'A footer column needs a heading, for example Company.',
+  label: 'A footer link needs the text that is shown on the site.',
+  url: 'Footer links have to start with "/" (for example /pages/about), be a full https:// URL or a mailto: address.',
+};
+
+/** A path on this site, a link to another site, or a mailto: address. */
+const linkable = (value) => value.startsWith('/') || /^(https?:\/\/|mailto:)/i.test(value);
+
+/** An empty or nonsense order means "leave it in the slot it is in". */
+const positionValue = (value) => {
+  const raw = String(value === undefined || value === null ? '' : value).trim();
+  return /^\d{1,3}$/.test(raw) ? Number(raw) : null;
+};
+
+/** One footer column: its heading, its place in the row and whether it shows. */
+export const normalizeFooterGroup = (data) => {
+  const label = clip(data.label, 40).replace(/\s+/g, ' ');
+  const error = !label ? 'heading' : '';
+  return {
+    error,
+    message: FOOTER_ERRORS[error] || '',
+    values: { label, position: positionValue(data.position), enabled: String(data.enabled) === '0' ? 0 : 1 },
+  };
+};
+
+/** One footer link: the words a shopper reads and the page they land on. */
+export const normalizeFooterLink = (data) => {
+  const label = clip(data.label, 60).replace(/\s+/g, ' ');
+  const url = clip(data.url, 300);
+  const error = !label ? 'label' : !linkable(url) ? 'url' : '';
+  return {
+    error,
+    message: FOOTER_ERRORS[error] || '',
+    values: { label, url, position: positionValue(data.position), enabled: String(data.enabled) === '0' ? 0 : 1 },
+  };
+};
+
 /* -------------------------------------------------------------- uploads ---- */
 
 /**

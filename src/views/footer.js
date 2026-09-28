@@ -10,7 +10,27 @@ const countryOptions = (value) => {
   }
 };
 
-export const footer = (settings, groups, symbol = '£') => html`
+/* ---------------------------------------------------------------- columns ---- */
+
+/** The links of one column, minus the rows an editor left without a URL. */
+const columnLinks = (group) => (group.links || []).filter((link) => link.url);
+
+/** A link to another site opens in a new tab; a path on this one does not. */
+const target = (url) => (/^https?:\/\//i.test(url) ? safe(' target="_blank" rel="noopener"') : '');
+
+/**
+ * How wide one footer column is. The link columns share their row with the
+ * currency picker, so the width follows how many of them there are (four read as
+ * two across on a tablet and four across on a desktop) and the row never wraps.
+ */
+const columnClass = (columns) =>
+  columns >= 4 ? 'col-6 col-lg-3' : columns === 3 ? 'col-4' : columns === 2 ? 'col-6' : 'col-12';
+
+export const footer = (settings, groups = [], symbol = '£') => {
+  // The currency picker is a column of its own, hence the + 1: it decides how
+  // wide the link columns may be drawn.
+  const width = columnClass(groups.length + 1);
+  return html`
   <footer class="pt-3 pt-md-0 bg-footer mt-auto">
     <div class="container py-4 py-md-5">
       <div class="row g-0 px-1">
@@ -36,16 +56,16 @@ export const footer = (settings, groups, symbol = '£') => html`
           <div class="row d-none d-md-flex">
             ${groups.map(
               (group) => html`
-                <div class="col-4">
+                <div class="${width}">
                   <h5 class="lh-sm fw-medium mb-4">${group.label}</h5>
-                  ${group.links.map(
+                  ${columnLinks(group).map(
                     (link) => html`<div class="mb-3">
-                      <a class="fs-7 text-reset" href="${link.url}">${link.label}</a>
+                      <a class="fs-7 text-reset" href="${link.url}"${target(link.url)}>${link.label}</a>
                     </div>`
                   )}
                 </div>`
             )}
-            <div class="col-4">
+            <div class="${width}">
               <h5 class="lh-sm fw-medium mb-4">${settings.footer_location_heading || 'Location'}</h5>
               <form method="post" action="/localization" class="localize__form" data-localize>
                 <label for="currency-selector" class="visually-hidden">Currency Selector</label>
@@ -69,9 +89,9 @@ export const footer = (settings, groups, symbol = '£') => html`
                   </h6>
                   <div id="footer-collapse-${index}" class="accordion-collapse collapse" aria-labelledby="footer-heading-${index}" data-bs-parent="#accordionFooter">
                     <div class="accordion-body pt-0 px-3">
-                      ${group.links.map(
+                      ${columnLinks(group).map(
                         (link) => html`<div class="mb-1">
-                          <a class="fs-8 text-reset" href="${link.url}">${link.label}</a>
+                          <a class="fs-8 text-reset" href="${link.url}"${target(link.url)}>${link.label}</a>
                         </div>`
                       )}
                     </div>
@@ -98,3 +118,4 @@ export const footer = (settings, groups, symbol = '£') => html`
       </div>
     </div>
   </footer>`;
+};

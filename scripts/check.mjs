@@ -82,14 +82,25 @@ for (const setting of settings) {
 // 4. the header categories and the admin screens must render
 const [
   { categoryNav, header, mobileNav },
-  { adminPage, categoriesView, categoryProductsView, homeView, loginView },
-  { MEDIA_MAX_BYTES, mediaKey, normalizeAnnouncement, normalizeCategory, normalizeHero, normalizeProduct },
+  { adminPage, categoriesView, categoryProductsView, footerView, homeView, loginView },
+  {
+    MEDIA_MAX_BYTES,
+    mediaKey,
+    normalizeAnnouncement,
+    normalizeCategory,
+    normalizeFooterGroup,
+    normalizeFooterLink,
+    normalizeHero,
+    normalizeProduct,
+  },
   { hero: storefrontHero },
+  { footer: storefrontFooter },
 ] = await Promise.all([
   import(new URL('src/views/chrome.js', root).href),
   import(new URL('src/views/admin.js', root).href),
   import(new URL('src/lib/admin.js', root).href),
   import(new URL('src/views/home.js', root).href),
+  import(new URL('src/views/footer.js', root).href),
 ]);
 
 const links = [
@@ -463,6 +474,111 @@ for (const expected of [
   'href="/collections/outdoor-range"',
 ]) {
   if (!heroMarkup.includes(expected)) failures.push(`views: the storefront hero lost ${expected}`);
+}
+
+// 6. the footer columns: what /admin/footer writes is what the storefront shows
+const footerColumn = (id, label, order, links) => ({
+  id,
+  parent_id: null,
+  kind: 'group_heading',
+  label,
+  url: '',
+  sort_order: order,
+  enabled: true,
+  links: links.map(([linkId, linkLabel, url, linkOrder]) => ({
+    id: linkId,
+    parent_id: id,
+    kind: 'link',
+    label: linkLabel,
+    url,
+    sort_order: linkOrder,
+    enabled: true,
+  })),
+});
+const footerGroups = [
+  footerColumn(1, 'Company', 1, [
+    [11, 'About', '/pages/about', 1],
+    [12, 'Contact', '/pages/contact-details', 2],
+    [13, 'FAQ', '/pages/faq', 3],
+  ]),
+  footerColumn(2, 'Follow', 2, [
+    [21, 'Instagram', 'https://www.instagram.com/', 1],
+    [22, 'Facebook', 'https://www.facebook.com/', 2],
+    [23, 'TikTok', 'https://www.tiktok.com/', 3],
+  ]),
+  footerColumn(3, 'Help', 3, [[31, 'Returns', '/pages/returns', 1]]),
+];
+const footerSettings = { footer_copyright: '© 2026 Chen Furniture', footer_location_heading: 'Location' };
+
+const footerAdmin = render(footerView({ groups: footerGroups, settings: footerSettings }));
+for (const expected of [
+  'Footer',
+  'action="/admin/footer/group"',
+  'action="/admin/footer/group/save"',
+  'action="/admin/footer/group/move"',
+  'action="/admin/footer/group/delete"',
+  'action="/admin/footer/link"',
+  'action="/admin/footer/link/save"',
+  'action="/admin/footer/link/move"',
+  'action="/admin/footer/link/delete"',
+  'action="/admin/footer/location"',
+  'value="Company"',
+  'value="Follow"',
+  'value="/pages/about"',
+  'value="https://www.instagram.com/"',
+  'value="Location"',
+]) {
+  if (!footerAdmin.includes(expected)) failures.push(`views: the footer admin screen is missing ${expected}`);
+}
+
+// The storefront renders those very columns, keeps the currency picker next to
+// them and sends a link that leaves the site to a new tab.
+const footerMarkup = render(storefrontFooter(footerSettings, footerGroups));
+for (const expected of [
+  '<h5 class="lh-sm fw-medium mb-4">Company</h5>',
+  '<h5 class="lh-sm fw-medium mb-4">Follow</h5>',
+  '>About</a>',
+  'href="/pages/about"',
+  'href="https://www.instagram.com/" target="_blank" rel="noopener"',
+  'id="currency-selector"',
+  'col-6 col-lg-3',
+]) {
+  if (!footerMarkup.includes(expected)) failures.push(`views: the storefront footer is missing ${expected}`);
+}
+// Two columns and the picker read as three equal thirds, as they always did.
+const twoColumns = render(storefrontFooter(footerSettings, footerGroups.slice(0, 2)));
+if (!twoColumns.includes('<div class="col-4">')) {
+  failures.push('views: two footer columns plus the picker should keep the original thirds');
+}
+
+// 7. the footer form rules behind that screen
+if (normalizeFooterLink({ label: 'FAQ', url: '/pages/faq' }).error) failures.push('admin: a valid footer link was rejected');
+if (normalizeFooterLink({ label: 'Instagram', url: 'https://www.instagram.com/' }).error) {
+  failures.push('admin: a social URL should be a valid footer link');
+}
+if (normalizeFooterLink({ label: 'Email', url: 'mailto:customerservice@chenfurniture.com' }).error) {
+  failures.push('admin: a mailto footer link should be accepted');
+}
+if (normalizeFooterLink({ label: '  ', url: '/pages/faq' }).error !== 'label') {
+  failures.push('admin: a footer link without words should be rejected');
+}
+if (normalizeFooterLink({ label: 'FAQ', url: 'pages/faq' }).error !== 'url') {
+  failures.push('admin: a footer link that is neither a path nor a URL should be rejected');
+}
+if (normalizeFooterLink({ label: 'FAQ', url: '' }).error !== 'url') {
+  failures.push('admin: a footer link with no URL should be rejected');
+}
+if (normalizeFooterLink({ label: 'FAQ', url: '/pages/faq', enabled: '0' }).values.enabled !== 0) {
+  failures.push('admin: an unchecked footer link should save 0');
+}
+if (normalizeFooterLink({ label: 'FAQ', url: '/pages/faq' }).values.position !== null) {
+  failures.push('admin: an empty footer order should keep the current slot');
+}
+if (normalizeFooterGroup({ label: '' }).error !== 'heading') {
+  failures.push('admin: a footer column without a heading should be rejected');
+}
+if (normalizeFooterGroup({ label: ' Company ' }).values.label !== 'Company') {
+  failures.push('admin: a footer heading should be trimmed');
 }
 
 if (failures.length) {

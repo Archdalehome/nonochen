@@ -195,14 +195,24 @@ export const menu = {
     { label: 'Cushions', url: '/collections/b-cushion', kind: 'link' },
     { label: 'Accessories', url: '/collections/accessories', kind: 'link' },
   ],
+  // The columns at the bottom of every page. /admin/footer edits these rows
+  // (`menu_items`, location = 'footer') - a heading plus its links. Links with a
+  // full https:// URL open in a new tab, so the socials are fine here.
   footer: [
     {
       heading: 'Company',
       links: [
-        ['Shop', '/'],
-        ['Email Us', 'mailto:customerservice@chenfurniture.com'],
-        ['Contact Details', '/pages/contact-details'],
-        ['Store Locator', '/pages/store-locator'],
+        ['About', '/pages/about'],
+        ['Contact', '/pages/contact-details'],
+        ['FAQ', '/pages/faq'],
+      ],
+    },
+    {
+      heading: 'Follow',
+      links: [
+        ['Instagram', 'https://www.instagram.com/'],
+        ['Facebook', 'https://www.facebook.com/'],
+        ['TikTok', 'https://www.tiktok.com/'],
       ],
     },
     {
@@ -387,6 +397,29 @@ export const sections = [
     data: {
       title: 'Store Locator',
       body: '<p>Prefer to try before you buy? Our bean bags are stocked by a growing list of independent retailers across the UK and Ireland.</p><p>Email customerservice@chenfurniture.com and we will point you to your nearest stockist.</p>',
+    },
+  },
+  /* The two pages the Company column of the footer links to. The wording keeps
+     to what the site already publishes (3-5 working days, the 14 day
+     cancellation, the customer service address), so it makes no new promises. */
+  {
+    page: 'page:about',
+    type: 'page',
+    name: 'About',
+    position: 1,
+    data: {
+      title: 'About Chen Furniture',
+      body: '<p>Chen Furniture makes bean bags, chairs and loungers for indoors and outdoors. The range is built around one idea: generous, sink-into-it comfort that suits the living room as well as the garden.</p><p>The fabrics are water resistant and UV resistant, so a shower of rain or a season in the sun is not a problem - every product page lists the features it was made with.</p><p>Questions about a product, an order or a return? Email <a href="mailto:customerservice@chenfurniture.com">customerservice@chenfurniture.com</a> and we will reply within one working day, Monday to Friday.</p>',
+    },
+  },
+  {
+    page: 'page:faq',
+    type: 'page',
+    name: 'FAQ',
+    position: 1,
+    data: {
+      title: 'FAQ',
+      body: '<p><strong>How long does delivery take?</strong><br>Orders are delivered within 3-5 working days, and free Mainland UK shipping is included. See <a href="/pages/delivery">Delivery Details</a>.</p><p><strong>Can I return an order?</strong><br>Yes - you can cancel within 14 days of receiving the products. See <a href="/pages/returns">Returns</a>.</p><p><strong>Where can I see the products in person?</strong><br>Our bean bags are stocked by independent retailers across the UK and Ireland - see <a href="/pages/store-locator">Store Locator</a>.</p><p><strong>How do I get in touch?</strong><br>Email <a href="mailto:customerservice@chenfurniture.com">customerservice@chenfurniture.com</a> or see <a href="/pages/contact-details">Contact Details</a>.</p>',
     },
   },
 ];
