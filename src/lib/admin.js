@@ -245,3 +245,146 @@ export const normalizeCategory = (data) => {
     },
   };
 };
+
+/* --------------------------------------------------- home content rules ---- */
+
+/**
+ * The announcement bar and the homepage hero. Both already render on the
+ * storefront (`views/partials.js` and `views/home.js`); these rules only police
+ * what the admin forms may store, so the renderers keep finding what they expect.
+ *
+ * `views/home.js` reads a slide as: video, video_mobile, poster, poster_mobile,
+ * title, text, url, button { label, url } - anything else in the payload (button
+ * colour and style, the carousel timing) is left exactly as it was.
+ */
+const HOME_ERRORS = {
+  'bar-text': 'The announcement bar needs some text - an empty bar is a blue stripe with nothing in it.',
+  'bar-icon': 'The bar icon has to be a path such as /images/icon-delivery.svg or a full https:// URL.',
+  'hero-video': 'The hero needs a video: a path such as /images/hero-outdoor-desktop.mp4, a full https:// URL, or a file to upload.',
+  'hero-media': 'The still images have to be paths such as /images/hero-outdoor-poster-desktop.jpg or full https:// URLs.',
+  'hero-link': 'Links have to start with "/" (for example /collections/outdoor-range) or be a full https:// URL.',
+  'hero-button': 'A button needs both a label and a link - clear the label to link the whole slide instead.',
+  'hero-slide': 'That slide is not part of the hero any more - reload the screen and try again.',
+};
+
+const clip = (value, length) =>
+  String(value === undefined || value === null ? '' : value)
+    .trim()
+    .slice(0, length);
+
+/** A path on this site (`/images/...`) or a full http(s) URL. */
+const onSite = (value) => value.startsWith('/') || /^https?:\/\//.test(value);
+
+/** The announcement bar form: the message and the little icon in front of it. */
+export const normalizeAnnouncement = (data) => {
+  const text = clip(data.announcement_text, 160).replace(/\s+/g, ' ');
+  const icon = clip(data.announcement_icon, 300);
+  const error = !text ? 'text' : icon && !onSite(icon) ? 'icon' : '';
+  return {
+    error,
+    message: HOME_ERRORS[`bar-${error}`] || '',
+    values: { announcement_text: text, announcement_icon: icon },
+  };
+};
+
+/**
+ * One hero slide form. `stored` is the section's current `data`, so the fields
+ * the form does not carry are copied through untouched and only the slide the
+ * form names is rewritten. Returns the whole payload to write back.
+ */
+export const normalizeHero = (data, stored = {}) => {
+  const slides = Array.isArray(stored.slides) ? stored.slides : [];
+  const index = Number(data.slide);
+  const current = Number.isInteger(index) && index >= 0 && index < slides.length ? slides[index] : null;
+  if (!current) return { error: 'slide', message: HOME_ERRORS['hero-slide'], values: null };
+
+  const video = clip(data.video, 300);
+  const videoMobile = clip(data.video_mobile, 300);
+  const poster = clip(data.poster, 300);
+  const posterMobile = clip(data.poster_mobile, 300);
+  const title = clip(data.title, 120);
+  const copy = clip(data.text, 300);
+  const link = clip(data.link, 300);
+  const buttonLabel = clip(data.button_label, 60);
+  const buttonUrl = clip(data.button_url, 300);
+
+  const error = !video || !onSite(video)
+    ? 'video'
+    : [videoMobile, poster, posterMobile].some((value) => value && !onSite(value))
+      ? 'media'
+      : [link, buttonUrl].some((value) => value && !onSite(value))
+        ? 'link'
+        : buttonLabel && !buttonUrl
+          ? 'button'
+          : '';
+  if (error) return { error, message: HOME_ERRORS[`hero-${error}`], values: null };
+
+  const next = {
+    ...current,
+    video,
+    // A phone with no file of its own would show an empty hero, so the desktop
+    // video stands in. The renderer still writes the same two <video> tags.
+    video_mobile: videoMobile || video,
+    poster,
+    poster_mobile: posterMobile || poster,
+    title,
+    text: copy,
+    url: link,
+  };
+  // The button only exists while it has a label; without one the whole slide is
+  // the link (which is how views/home.js renders it too).
+  if (buttonLabel) next.button = { ...(current.button || {}), label: buttonLabel, url: buttonUrl };
+  else delete next.button;
+
+  return {
+    error: '',
+    message: '',
+    values: { ...stored, slides: slides.map((slide, position) => (position === index ? next : slide)) },
+  };
+};
+
+/* -------------------------------------------------------------- uploads ---- */
+
+/**
+ * What the hero may be given, and which extension each media type gets. The
+ * extension comes from the declared MIME type, never from the file name - the
+ * same rule `scripts/upload-media.mjs` follows with `--content-type`.
+ */
+const MEDIA_TYPES = {
+  video: {
+    label: 'Video',
+    extensions: ['mp4', 'webm', 'mov'],
+    mime: { 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' },
+  },
+  image: {
+    label: 'Image',
+    extensions: ['jpg', 'jpeg', 'png', 'webp', 'avif'],
+    mime: { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif' },
+  },
+};
+
+/** Hero videos run to a few MB; Worker requests start failing around 100 MB. */
+export const MEDIA_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Turns one uploaded file into the R2 key it will live under. The `images/`
+ * prefix is what the `/images/*` route reads, and the timestamp keeps a replaced
+ * video from being served out of the year long cache of the one it replaced.
+ */
+export const mediaKey = (file, kind = 'video', stamp = Date.now()) => {
+  const table = MEDIA_TYPES[kind] || MEDIA_TYPES.video;
+  const name = slugify(String(file.name || '').replace(/\.[^.]+$/, '')) || 'hero';
+  const declared = String(file.type || '').toLowerCase();
+  const extension = table.mime[declared];
+  if (!extension) {
+    return { error: 'type', path: '', message: `${table.label} uploads have to be ${table.extensions.join(', ')}.` };
+  }
+  if (!file.size) return { error: 'empty', path: '', message: 'That file is empty.' };
+  if (file.size > MEDIA_MAX_BYTES) {
+    return { error: 'size', path: '', message: `That file is ${Math.round(file.size / 1048576)} MB - the limit is 25 MB.` };
+  }
+  const key = `images/hero/${stamp}-${name}.${extension}`;
+  // `contentType` is what R2 hands back with the object, so the browser gets a
+  // real video/mp4 (the extension is only part of the key).
+  return { error: '', kind, key, path: `/${key}`, contentType: declared, message: '' };
+};

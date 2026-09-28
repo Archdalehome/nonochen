@@ -120,7 +120,9 @@ can also be started by hand from the Actions tab (or `gh workflow run deploy.yml
    add a hidden `smoke-<timestamp>` category, reject a duplicate slug and a bad
    slug, edit it, move it, create a `smoke-product-<timestamp>` product in it,
    reject a bad price and a duplicate product slug, edit that product, take it
-   out of the category and put it back, delete the product, delete the category
+   out of the category and put it back, open `/admin/home`, save the announcement
+   bar and the hero back exactly as the screen showed them (so nothing on the
+   homepage moves) and find both on `/`, delete the product, delete the category
    and sign out - all against the live D1 (`/wrangler.jsonc`, `/src/...`,
    `/migrations/...` have to keep returning 404 as well);
 5. if the push touched `images/`, `npm run media:remote` syncs the bucket (a push
@@ -150,13 +152,17 @@ so two quick pushes queue up instead of racing each other. Until
 
 ## Admin (`/admin`)
 
-A small admin area manages the **product categories**: the row of links in the
-header, next to the logo and the search/cart icons, on every page. The mobile
-drawer shows that same list above its three fixed links - **Search**, **Contact
-Details** and **Store Locator**; the menu tree that came in with the Shopify
-import is not rendered anywhere.
+A small admin area manages the **product categories** - the row of links in the
+header, next to the logo and the search/cart icons, on every page - and the
+**home page content**: the announcement bar that sits above that header and the
+hero video with the wording and links over it. The mobile drawer shows the same
+category list above its three fixed links - **Search**, **Contact Details** and
+**Store Locator**; the menu tree that came in with the Shopify import is not
+rendered anywhere.
 
 * `/admin/login` - sign in with **admin / admin** (see below to change it)
+* `/admin/home` - the announcement bar and the hero: its video (a path, a URL or
+  an upload), the heading, text and links over it
 * `/admin/categories` - add, rename, reorder, hide and delete categories
 * `/admin/categories/products?slug=<slug>` - the products one category lists:
   edit any row, add a product that is already in the shop, create a brand new
@@ -234,6 +240,37 @@ the storefront link 404s, while the products themselves are still listed at
 `/category/<slug>`. Clear the override (or pick a collection that exists) to put
 them back on the link in the header.
 
+### The announcement bar and the hero
+
+`/admin/home` edits the two blocks the storefront already renders, and only what
+they say - never how they are laid out:
+
+* the **announcement bar** - the message and the icon in front of it
+  (`settings.announcement_text` / `announcement_icon`). An empty icon drops the
+  icon, which is what the bar already does;
+* the **hero** - one form per slide of the `hero` row in `sections`: the desktop
+  and phone video, the two still images, the heading and text over the video, the
+  link for the whole slide, and the button (label + link). Every field is one the
+  hero already reads, so the button keeps the style and colour it was given and
+  the carousel keeps its timing.
+
+The screen opens with what is live right now - the bar itself and a small player
+for the video - so what a save replaces is visible before it happens.
+
+A media field takes a **path or URL** (`/images/hero-outdoor-desktop.mp4`,
+`https://...`) and, next to it, a **file**. Picking a file stores it in R2 as
+`images/hero/<timestamp>-<name>.<ext>` and writes that path into the field: the
+timestamp keeps the new video out of the year long cache of the one it replaced,
+and the extension follows the declared type (MP4 / WebM / MOV, JPEG / PNG / WebP
+/ AVIF - no SVG, like the other uploads). Files stop at 25 MB, and when the
+`MEDIA` binding is missing the file pickers are not offered at all.
+
+Two details that keep the hero working: a slide with no phone video reuses the
+desktop file (a phone would otherwise show an empty hero), and clearing the
+button label removes the button, which makes the whole slide the link. Saving
+invalidates the cached `sections` / `settings` rows exactly like the category
+writes do, so the storefront shows the change on its next request.
+
 ### Changing the password
 
 ```bash
@@ -254,7 +291,8 @@ lives in Cloudflare and can be changed without a deploy:
 
 | what | where |
 | --- | --- |
-| copy, menus, homepage blocks, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
+| the remaining copy, the other homepage blocks, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
+| the announcement bar, the hero video and its wording | `/admin/home` (see above) |
 | the header categories | `/admin/categories` (see above), or the `categories` table directly |
 | the products inside a category | `/admin/categories/products?slug=<slug>` (see above), or the `products` / `product_collections` / `product_variants` tables directly |
 | images and video | R2 `el-media` - dashboard -> *R2 -> el-media -> Objects*, or drop files into `./images` and run `npm run media:remote` |
@@ -274,8 +312,10 @@ scripts/              setup.mjs, upload-media.mjs, wrangler-cli.mjs (shared help
                       fetch-media.mjs, build-seed.mjs, check.mjs, smoke.mjs, data/
 src/index.js          router + request handlers (storefront + /admin)
 src/lib/              html.js (templates), db.js (queries), cart.js (cart + cookies),
-                      cookies.js (cookie helpers), admin.js (login, session, category + product rules)
+                      cookies.js (cookie helpers), admin.js (login, session, category +
+                      product + home content rules, hero uploads)
 src/views/            layout, chrome (incl. the header categories), home, product,
-                      collection, cart, cart-drawer, admin (login, category manager, the products of a category), ...
+                      collection, cart, cart-drawer, admin (login, the home page content
+                      - announcement bar + hero -, the category manager, the products of a category), ...
 _scratch/             scraped dumps used while writing the views (git-ignored)
 ```

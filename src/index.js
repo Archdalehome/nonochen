@@ -16,6 +16,7 @@ import {
   deleteProduct,
   footerGroups,
   moveCategory,
+  pageSections,
   productByHandle,
   productById,
   productCategoryIndex,
@@ -25,6 +26,8 @@ import {
   productsByCategory,
   relatedProducts,
   removeProductFromCategory,
+  saveSectionData,
+  saveSettings,
   searchProducts,
   sections,
   settings as loadSettings,
@@ -36,7 +39,10 @@ import {
   credentials,
   defaultPasswordInUse,
   destroySession,
+  mediaKey,
+  normalizeAnnouncement,
   normalizeCategory,
+  normalizeHero,
   normalizeProduct,
   safeNext,
   sessionUser,
@@ -58,7 +64,7 @@ import { SORTS, collectionIndex, collectionView } from './views/collection.js';
 import { productView } from './views/product.js';
 import { cartPage, checkoutPage, thankYouPage } from './views/cart.js';
 import { contentPage, searchPage } from './views/pages.js';
-import { adminNotFound, adminPage, categoriesView, categoryProductsView, loginView } from './views/admin.js';
+import { adminNotFound, adminPage, categoriesView, categoryProductsView, homeView, loginView } from './views/admin.js';
 import { cartDrawerContent } from './views/cart-drawer.js';
 
 /* --------------------------------------------------------------- responses ---- */
@@ -375,6 +381,44 @@ const PRODUCT_NOTICES = {
   },
 };
 
+/**
+ * And for `/admin/home`, which writes the announcement bar (`settings`) and the
+ * homepage hero (`sections`). The keys are prefixed with the form they come from.
+ */
+const HOME_NOTICES = {
+  'bar-saved': { kind: 'success', message: 'Announcement bar saved - every page shows it from its next request on.' },
+  'hero-saved': { kind: 'success', message: 'Hero saved - reload the homepage to see it.' },
+  'bar-text': { kind: 'danger', message: 'The announcement bar needs some text.' },
+  'bar-icon': {
+    kind: 'danger',
+    message: 'The bar icon has to be a path such as /images/icon-delivery.svg or a full https:// URL (or empty).',
+  },
+  'hero-video': {
+    kind: 'danger',
+    message: 'The hero needs a video: a path such as /images/hero-outdoor-desktop.mp4, a full https:// URL, or a file to upload.',
+  },
+  'hero-media': {
+    kind: 'danger',
+    message: 'The still images have to be paths such as /images/hero-outdoor-poster-desktop.jpg or full https:// URLs.',
+  },
+  'hero-link': {
+    kind: 'danger',
+    message: 'Links have to start with "/" (for example /collections/outdoor-range) or be a full https:// URL.',
+  },
+  'hero-button': { kind: 'danger', message: 'A button needs a label and a link - clear the label to link the whole slide instead.' },
+  'hero-slide': { kind: 'danger', message: 'That slide is not part of the hero (any more) - reload the screen and try again.' },
+  'hero-missing': { kind: 'danger', message: 'The homepage has no hero block (any more), so there is nothing to save.' },
+  'hero-type': {
+    kind: 'danger',
+    message: 'That file type is not supported: videos have to be MP4, WebM or MOV, stills JPEG, PNG, WebP or AVIF.',
+  },
+  'hero-size': { kind: 'danger', message: 'That file is too big - the upload limit is 25 MB.' },
+  'hero-storage': {
+    kind: 'danger',
+    message: 'No MEDIA bucket is bound to this Worker, so the file could not be stored - type a path such as /images/hero-outdoor-desktop.mp4 instead.',
+  },
+};
+
 const adminNotice = (url, notices = ADMIN_NOTICES) => {
   const key = url.searchParams.get('error') || url.searchParams.get('flash') || '';
   return notices[key] || null;
@@ -483,6 +527,81 @@ const adminCategoryMove = async (request, env) => {
   const data = await readForm(request);
   const moved = await moveCategory(env.DB, Number(data.id), data.direction === 'up' ? 'up' : 'down');
   return redirect(moved ? '/admin/categories?flash=moved' : '/admin/categories?error=missing');
+};
+
+/* ------------------------------------------ the bar and the hero ---- */
+
+const adminHomePage = async (request, env, user) => {
+  const [siteSettings, list] = await Promise.all([loadSettings(env.DB), pageSections(env.DB, 'home')]);
+  return adminResponse({
+    env,
+    user,
+    title: 'Home page content',
+    body: homeView({
+      settings: siteSettings,
+      hero: list.find((section) => section.type === 'hero') || null,
+      media: Boolean(env.MEDIA),
+    }),
+    flash: adminNotice(new URL(request.url), HOME_NOTICES),
+  });
+};
+
+const adminAnnouncementSave = async (request, env) => {
+  const { error, values } = normalizeAnnouncement(await readForm(request));
+  if (error) return redirect(`/admin/home?error=bar-${error}`);
+  await saveSettings(env.DB, values);
+  return redirect('/admin/home?flash=bar-saved');
+};
+
+/** The file one media input posted, or null when the picker was left alone. */
+const uploadedFile = (form, name) => {
+  const value = form.get(name);
+  return value && typeof value === 'object' && typeof value.stream === 'function' && value.size ? value : null;
+};
+
+/**
+ * Stores one picked file in R2 and returns the `/images/...` path it is served
+ * from. The objects keep the `images/` prefix scripts/upload-media.mjs uses, so
+ * the existing `/images/*` route reads them the same way.
+ */
+const storeHeroFile = async (env, file, kind) => {
+  const checked = mediaKey(file, kind);
+  if (checked.error) return checked;
+  await env.MEDIA.put(checked.key, file.stream(), { httpMetadata: { contentType: checked.contentType } });
+  return checked;
+};
+
+/**
+ * Saves one hero slide. A file picked in the form is written to R2 first and its
+ * path replaces whatever the field next to it held, so the two controls of a
+ * media field can never disagree.
+ */
+const adminHeroSave = async (request, env) => {
+  const form = await request.formData();
+  const fields = Object.fromEntries([...form.entries()].map(([key, value]) => [key, typeof value === 'string' ? value : '']));
+  const id = Number(fields.section_id) || 0;
+  const hero = (await pageSections(env.DB, 'home')).find((section) => section.id === id && section.type === 'hero');
+  if (!hero) return redirect('/admin/home?error=hero-missing');
+
+  const uploads = [
+    ['video_file', 'video', 'video'],
+    ['video_mobile_file', 'video_mobile', 'video'],
+    ['poster_file', 'poster', 'image'],
+    ['poster_mobile_file', 'poster_mobile', 'image'],
+  ];
+  for (const [input, field, kind] of uploads) {
+    const file = uploadedFile(form, input);
+    if (!file) continue;
+    if (!env.MEDIA) return redirect('/admin/home?error=hero-storage');
+    const stored = await storeHeroFile(env, file, kind);
+    if (stored.error) return redirect(`/admin/home?error=hero-${stored.error === 'size' ? 'size' : 'type'}`);
+    fields[field] = stored.path;
+  }
+
+  const { error, values } = normalizeHero(fields, hero.data);
+  if (error) return redirect(`/admin/home?error=hero-${error}`);
+  const saved = await saveSectionData(env.DB, hero.id, values);
+  return redirect(saved ? '/admin/home?flash=hero-saved' : '/admin/home?error=hero-missing');
 };
 
 /**
@@ -620,6 +739,12 @@ const adminRoute = async (request, env, path, method) => {
   if (path === '/admin/categories/save') return isPost ? adminCategorySave(request, env) : methodNotAllowed();
   if (path === '/admin/categories/delete') return isPost ? adminCategoryDelete(request, env) : methodNotAllowed();
   if (path === '/admin/categories/move') return isPost ? adminCategoryMove(request, env) : methodNotAllowed();
+  if (path === '/admin/home') {
+    if (isPost) return methodNotAllowed();
+    return isGet ? adminHomePage(request, env, user) : methodNotAllowed();
+  }
+  if (path === '/admin/home/announcement') return isPost ? adminAnnouncementSave(request, env) : methodNotAllowed();
+  if (path === '/admin/home/hero') return isPost ? adminHeroSave(request, env) : methodNotAllowed();
   if (path === '/admin/categories/products') {
     return isGet ? adminCategoryProductsPage(request, env, user) : methodNotAllowed();
   }

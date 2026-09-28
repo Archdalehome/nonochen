@@ -82,12 +82,14 @@ for (const setting of settings) {
 // 4. the header categories and the admin screens must render
 const [
   { categoryNav, header, mobileNav },
-  { adminPage, categoriesView, categoryProductsView, loginView },
-  { normalizeCategory, normalizeProduct },
+  { adminPage, categoriesView, categoryProductsView, homeView, loginView },
+  { MEDIA_MAX_BYTES, mediaKey, normalizeAnnouncement, normalizeCategory, normalizeHero, normalizeProduct },
+  { hero: storefrontHero },
 ] = await Promise.all([
   import(new URL('src/views/chrome.js', root).href),
   import(new URL('src/views/admin.js', root).href),
   import(new URL('src/lib/admin.js', root).href),
+  import(new URL('src/views/home.js', root).href),
 ]);
 
 const links = [
@@ -292,6 +294,175 @@ if (normalizeProduct({ title: 'X', price: '1', image: '/x.png', sort_order: 'lat
 }
 if (normalizeProduct({ title: 'X', price: '1', image: '/x.png', sold_out: '0' }).values.soldOut !== 0) {
   failures.push('admin: an unchecked sold out switch should save 0');
+}
+
+// 7. the home page screen (the announcement bar and the hero) and its rules
+const heroSection = {
+  id: 3,
+  name: 'Homepage carousel',
+  position: 1,
+  enabled: true,
+  data: {
+    interval: 3000,
+    slides: [
+      {
+        interval: 5000,
+        url: '/collections/outdoor-range',
+        title: 'Embrace the Outdoors',
+        text: '',
+        button: { label: 'Shop Outdoor', url: '/collections/outdoor-range', style: 'btn-white', color: '#000000' },
+        video: '/images/hero-outdoor-desktop.mp4',
+        video_mobile: '/images/hero-outdoor-mobile.mp4',
+        poster: '',
+        poster_mobile: '',
+      },
+    ],
+  },
+};
+
+const home = render(
+  adminPage({
+    user: 'admin',
+    siteName: 'Chen Furniture',
+    title: 'Home page content',
+    body: homeView({
+      settings: {
+        announcement_text: 'Free Mainland UK Shipping On All Orders',
+        announcement_icon: '/images/icon-delivery.svg',
+      },
+      hero: heroSection,
+      media: true,
+    }),
+  })
+);
+const homeMarkup = [
+  'action="/admin/home/announcement"',
+  'action="/admin/home/hero"',
+  'enctype="multipart/form-data"',
+  'name="announcement_text" value="Free Mainland UK Shipping On All Orders"',
+  'name="announcement_icon" value="/images/icon-delivery.svg"',
+  'name="section_id" value="3"',
+  'name="slide" value="0"',
+  'name="video" value="/images/hero-outdoor-desktop.mp4"',
+  'name="video_mobile" value="/images/hero-outdoor-mobile.mp4"',
+  'name="title" value="Embrace the Outdoors"',
+  'name="link" value="/collections/outdoor-range"',
+  'name="button_label" value="Shop Outdoor"',
+  'name="button_url" value="/collections/outdoor-range"',
+  'name="video_file"',
+];
+for (const expected of homeMarkup) {
+  if (!home.includes(expected)) failures.push(`views: the home page screen is missing ${expected}`);
+}
+// It previews the real bar, and it only offers a file picker when there is a
+// bucket behind it.
+if (!home.includes('announcement-bar')) failures.push('views: the home page screen does not preview the announcement bar');
+if (!render(homeView({ settings: {}, hero: null })).includes('No hero section')) {
+  failures.push('views: the home page screen should say so when the homepage has no hero');
+}
+if (render(homeView({ settings: {}, hero: heroSection, media: false })).includes('type="file"')) {
+  failures.push('views: the home page screen should not offer uploads without a MEDIA bucket');
+}
+// A hero the homepage is not showing says so, so a save is not a surprise.
+if (!render(homeView({ settings: {}, hero: { ...heroSection, enabled: false } })).includes('This hero block is switched off')) {
+  failures.push('views: the home page screen should flag a hero that is switched off');
+}
+if (render(homeView({ settings: {}, hero: heroSection })).includes('switched off')) {
+  failures.push('views: an enabled hero should not be flagged as switched off');
+}
+
+const bar = normalizeAnnouncement({
+  announcement_text: '  Free   Mainland UK Shipping  ',
+  announcement_icon: '/images/icon-delivery.svg',
+});
+if (bar.error) failures.push(`admin: a valid announcement bar was rejected (${bar.error})`);
+if (bar.values.announcement_text !== 'Free Mainland UK Shipping') {
+  failures.push('admin: the bar message should lose its double spaces');
+}
+if (normalizeAnnouncement({ announcement_text: '   ' }).error !== 'text') {
+  failures.push('admin: an empty bar message should be rejected');
+}
+if (normalizeAnnouncement({ announcement_text: 'Hi', announcement_icon: 'icon-delivery.svg' }).error !== 'icon') {
+  failures.push('admin: a bar icon that is neither a path nor a URL should be rejected');
+}
+if (normalizeAnnouncement({ announcement_text: 'Hi' }).values.announcement_icon !== '') {
+  failures.push('admin: an empty bar icon should stay empty - no icon is rendered then');
+}
+
+const heroForm = (fields = {}) =>
+  normalizeHero({ slide: '0', video: '/images/hero-outdoor-desktop.mp4', ...fields }, heroSection.data);
+const saved = heroForm({
+  video_mobile: '',
+  poster: '',
+  poster_mobile: '',
+  title: 'Embrace the Outdoors',
+  text: 'Made to last',
+  link: '/collections/outdoor-range',
+  button_label: '',
+  button_url: '',
+});
+if (saved.error) failures.push(`admin: a valid hero slide was rejected (${saved.error})`);
+const slide = saved.values.slides[0];
+if (slide.text !== 'Made to last') failures.push('admin: the text over the hero video was not saved');
+if (slide.video_mobile !== '/images/hero-outdoor-desktop.mp4') {
+  failures.push('admin: a hero with no phone video should reuse the desktop one');
+}
+if (slide.button) failures.push('admin: clearing the button label should drop the button');
+if (saved.values.slides.length !== 1) failures.push('admin: saving one slide should not add or drop slides');
+if (saved.values.interval !== 3000) {
+  failures.push('admin: saving the hero should keep the fields the form does not show');
+}
+
+const kept = heroForm({ button_label: 'SHOP OUTDOOR', button_url: '/collections/outdoor-range' });
+if (kept.values.slides[0].button.style !== 'btn-white' || kept.values.slides[0].button.color !== '#000000') {
+  failures.push('admin: saving the hero button should keep its style and colour');
+}
+if (!kept.values.slides[0].button.url) failures.push('admin: the hero button should keep its link');
+if (heroForm({ video: '' }).error !== 'video') failures.push('admin: a hero without a video should be rejected');
+if (heroForm({ video: 'hero.mp4' }).error !== 'video') {
+  failures.push('admin: a hero video that is neither a path nor a URL should be rejected');
+}
+if (heroForm({ poster: 'poster.jpg' }).error !== 'media') {
+  failures.push('admin: a hero still that is neither a path nor a URL should be rejected');
+}
+if (heroForm({ link: 'collections/outdoor-range' }).error !== 'link') {
+  failures.push('admin: a hero link that is neither a path nor a URL should be rejected');
+}
+if (heroForm({ button_label: 'Shop', button_url: '' }).error !== 'button') {
+  failures.push('admin: a button without a link should be rejected');
+}
+if (normalizeHero({ slide: '9', video: '/x.mp4' }, heroSection.data).error !== 'slide') {
+  failures.push('admin: a slide that is not in the hero should be rejected');
+}
+
+// Uploads: the extension follows the declared type (never the file name) and the
+// object keeps the `images/` prefix the /images/* route reads.
+const upload = mediaKey({ name: 'Hero Outdoor! .MP4', type: 'video/mp4', size: 4 * 1024 * 1024 }, 'video', 123);
+if (upload.error) failures.push(`admin: a valid hero video was rejected (${upload.error})`);
+if (upload.key !== 'images/hero/123-hero-outdoor.mp4') failures.push(`admin: unexpected upload key ${upload.key}`);
+if (upload.path !== '/images/hero/123-hero-outdoor.mp4') {
+  failures.push('admin: the upload path should be the one the /images/* route serves');
+}
+if (upload.contentType !== 'video/mp4') {
+  failures.push(`admin: an upload of a video/mp4 file should be served as video/mp4, got ${upload.contentType}`);
+}
+if (mediaKey({ name: 'a.svg', type: 'image/svg+xml', size: 10 }, 'image').error !== 'type') {
+  failures.push('admin: an upload of a type the site cannot serve should be rejected');
+}
+if (mediaKey({ name: 'huge.mp4', type: 'video/mp4', size: MEDIA_MAX_BYTES + 1 }, 'video').error !== 'size') {
+  failures.push('admin: an oversized upload should be rejected');
+}
+
+// The storefront renders the same hero it rendered before the editor existed.
+const heroMarkup = render(storefrontHero(heroSection));
+for (const expected of [
+  '<source src="/images/hero-outdoor-desktop.mp4" type="video/mp4">',
+  '<source src="/images/hero-outdoor-mobile.mp4" type="video/mp4">',
+  'Embrace the Outdoors',
+  'Shop Outdoor',
+  'href="/collections/outdoor-range"',
+]) {
+  if (!heroMarkup.includes(expected)) failures.push(`views: the storefront hero lost ${expected}`);
 }
 
 if (failures.length) {

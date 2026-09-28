@@ -162,6 +162,21 @@ await check('/admin/categories/products?slug=outdoor-range', {
   expect: 303,
   headers: { location: '/admin/login?next=%2Fadmin%2Fcategories%2Fproducts' },
 });
+// So does the home page screen (the announcement bar and the hero).
+await check('/admin/home', {
+  expect: 303,
+  headers: { location: '/admin/login?next=%2Fadmin%2Fhome' },
+});
+await check('/admin/home/announcement', {
+  init: { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'announcement_text=nope' },
+  expect: 303,
+  headers: { location: '/admin/login?next=%2Fadmin%2Fhome%2Fannouncement' },
+});
+await check('/admin/home/hero', {
+  init: { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'section_id=1' },
+  expect: 303,
+  headers: { location: '/admin/login?next=%2Fadmin%2Fhome%2Fhero' },
+});
 await check('/admin/products/create', {
   init: { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'title=nope' },
   expect: 303,
@@ -203,6 +218,86 @@ await check('/admin/categories/products?slug=no-such-category', {
   expect: 404,
   contains: ['Not found'],
 });
+
+// The home page screen holds the announcement bar and the hero the storefront
+// renders. Saving the values it just showed back proves the whole path (form ->
+// D1 -> storefront) without changing what the site displays - so it is safe to
+// run against production. The fields are HTML escaped in the markup, so they are
+// decoded again before they are posted back.
+const home = await check('/admin/home', {
+  init: { headers: admin },
+  contains: ['Home page content', 'Announcement bar', 'action="/admin/home/announcement"', 'action="/admin/home/hero"'],
+});
+const inputValue = (body, name) => {
+  const found = new RegExp(`name="${name}"[^>]*value="([^"]*)"`).exec(body || '');
+  if (!found) return '';
+  const entities = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" };
+  return found[1].replace(/&(amp|lt|gt|quot|#39);/g, (_, entity) => entities[entity]);
+};
+
+const barText = inputValue(home.body, 'announcement_text');
+if (barText) {
+  await check('/admin/home/announcement', {
+    init: {
+      method: 'POST',
+      headers: adminForm,
+      body: adminBody({ announcement_text: barText, announcement_icon: inputValue(home.body, 'announcement_icon') }),
+    },
+    expect: 303,
+    headers: { location: '/admin/home?flash=bar-saved' },
+  });
+  // An icon that is neither a path nor a URL is refused instead of stored.
+  await check('/admin/home/announcement', {
+    init: {
+      method: 'POST',
+      headers: adminForm,
+      body: adminBody({ announcement_text: barText, announcement_icon: 'icon-delivery.svg' }),
+    },
+    expect: 303,
+    headers: { location: '/admin/home?error=bar-icon' },
+  });
+} else {
+  console.log('     note: no announcement text in the database - skipping the bar round trip');
+}
+
+const heroId = inputValue(home.body, 'section_id');
+const heroVideo = inputValue(home.body, 'video');
+if (heroId && heroVideo) {
+  const heroFields = {
+    section_id: heroId,
+    slide: inputValue(home.body, 'slide') || '0',
+    video: heroVideo,
+    video_mobile: inputValue(home.body, 'video_mobile'),
+    poster: inputValue(home.body, 'poster'),
+    poster_mobile: inputValue(home.body, 'poster_mobile'),
+    title: inputValue(home.body, 'title'),
+    text: inputValue(home.body, 'text'),
+    link: inputValue(home.body, 'link'),
+    button_label: inputValue(home.body, 'button_label'),
+    button_url: inputValue(home.body, 'button_url'),
+  };
+  await check('/admin/home/hero', {
+    init: { method: 'POST', headers: adminForm, body: adminBody(heroFields) },
+    expect: 303,
+    headers: { location: '/admin/home?flash=hero-saved' },
+  });
+  // The homepage still shows the very same hero.
+  await check('/', { contains: [heroVideo, ...(heroFields.title ? [heroFields.title] : [])] });
+  // A section that is not the hero, and a link that is neither a path nor a URL,
+  // are refused as well.
+  await check('/admin/home/hero', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ ...heroFields, section_id: '0' }) },
+    expect: 303,
+    headers: { location: '/admin/home?error=hero-missing' },
+  });
+  await check('/admin/home/hero', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ ...heroFields, link: 'collections/outdoor-range' }) },
+    expect: 303,
+    headers: { location: '/admin/home?error=hero-link' },
+  });
+} else {
+  console.log('     note: the homepage has no hero video - skipping the hero round trip');
+}
 
 // The round trip runs on a hidden row whose name carries a timestamp, so a
 // smoke test against production never collides with a parallel run and never

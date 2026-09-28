@@ -74,6 +74,23 @@ export const saveSetting = async (db, key, value) => {
   invalidate('settings');
 };
 
+/** Several settings in one round trip - the admin forms that write more than one key. */
+export const saveSettings = async (db, entries) => {
+  const pairs = Object.entries(entries || {});
+  if (!pairs.length) return;
+  await db.batch(
+    pairs.map(([key, value]) =>
+      db
+        .prepare(
+          `INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, datetime('now'))
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .bind(key, String(value))
+    )
+  );
+  invalidate('settings');
+};
+
 /* ------------------------------------------------------------------ menus ---- */
 
 /**
@@ -109,6 +126,29 @@ export const sections = (db, page = 'home') =>
       .all();
     return (results || []).map((row) => ({ ...row, data: parseJson(row.data, {}) }));
   });
+
+/**
+ * The blocks of one page as the admin edits them: uncached on purpose (the screen
+ * has to see its own writes) and hidden rows included, so a disabled hero stays
+ * editable instead of turning into a dead end in the admin.
+ */
+export const pageSections = async (db, page = 'home') => {
+  const { results } = await db
+    .prepare(
+      `SELECT id, page, type, name, position, enabled, data FROM sections
+        WHERE page = ? ORDER BY position, id`
+    )
+    .bind(page)
+    .all();
+  return (results || []).map((row) => ({ ...row, enabled: Boolean(row.enabled), data: parseJson(row.data, {}) }));
+};
+
+/** Writes one section's JSON payload back - the storefront renders it next request. */
+export const saveSectionData = async (db, id, data) => {
+  const result = await db.prepare('UPDATE sections SET data = ? WHERE id = ?').bind(JSON.stringify(data), Number(id)).run();
+  invalidate('sections');
+  return Boolean(result.meta && result.meta.changes);
+};
 
 /* ------------------------------------------------------------ collections ---- */
 

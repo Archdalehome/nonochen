@@ -1,5 +1,6 @@
 import { html, money, safe } from '../lib/html.js';
 import { CATEGORY_FILTERS } from '../lib/admin.js';
+import { announcementBar } from './partials.js';
 
 /* ---------------------------------------------------------------- shell ---- */
 
@@ -30,6 +31,7 @@ export const adminHeader = ({ user, siteName }) => html`
     <div class="container d-flex align-items-center gap-3 flex-wrap">
       <a href="/admin/categories" class="heading-font text-uppercase text-white text-decoration-none fs-6">${siteName} admin</a>
       <nav class="ms-auto d-flex align-items-center gap-3 fs-7">
+        <a href="/admin/home" class="text-white text-decoration-none">Home page</a>
         <a href="/admin/categories" class="text-white text-decoration-none">Categories</a>
         <a href="/" class="text-white text-decoration-none" target="_blank" rel="noopener">View store</a>
         <span class="text-white-50 d-none d-md-inline">Signed in as ${user}</span>
@@ -499,3 +501,174 @@ export const adminNotFound = ({ message = 'That admin page does not exist.' }) =
       <a class="btn btn-primary btn-sm rounded px-4" href="/admin/categories">Back to categories</a>
     </div>
   </div>`;
+
+/* --------------------------------------------------- home page content ---- */
+
+/**
+ * One media field: the path the storefront renders, plus a file picker that
+ * replaces it. Both post with the same form, so without JavaScript the file is
+ * simply stored and the field is updated in one save.
+ */
+const mediaField = ({ id, name, label, value = '', file, accept, hint, upload = true, col = 'col-12 col-lg-6' }) => html`
+  <div class="${col}">
+    <label class="form-label fs-8 text-uppercase mb-1" for="${id}">${label}</label>
+    <input class="form-control form-control-sm" id="${id}" name="${name}" value="${value}" maxlength="300" placeholder="${hint}">
+    ${upload
+      ? html`<input class="form-control form-control-sm mt-1 fs-8" type="file" name="${file}" accept="${accept}" aria-label="${label}: choose a file to upload">`
+      : ''}
+  </div>`;
+
+/** One hero slide: what the site shows now, and the fields that change it. */
+const heroSlide = ({ slide, index, section, media }) => html`
+  <form method="post" action="/admin/home/hero" enctype="multipart/form-data" class="card border-0 shadow-sm rounded-3 mb-4">
+    <input type="hidden" name="section_id" value="${section.id}">
+    <input type="hidden" name="slide" value="${index}">
+    <div class="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <h2 class="h6 text-uppercase mb-0">Slide ${index + 1}</h2>
+      <span class="fs-8 text-secondary">${slide.video || 'no video'}</span>
+    </div>
+    <div class="card-body row g-3">
+      <div class="col-12 col-lg-4">
+        <p class="form-label fs-8 text-uppercase mb-1">On the site now</p>
+        ${slide.video
+          ? html`<video class="w-100 rounded bg-body-secondary" style="max-height: 12rem" src="${slide.video}" poster="${slide.poster || ''}" controls muted loop playsinline preload="metadata"></video>`
+          : html`<p class="fs-8 text-secondary mb-0">This slide has no video, so the storefront skips it.</p>`}
+        <p class="fs-8 text-secondary mt-1 mb-0">
+          ${slide.title ? html`Heading: <strong>${slide.title}</strong>. ` : 'No heading. '}
+          ${slide.button && slide.button.label
+            ? html`Button: <strong>${slide.button.label}</strong> &rarr; <code>${slide.button.url}</code>.`
+            : html`No button${slide.url ? html`, the whole slide links to <code>${slide.url}</code>` : ''}.`}
+        </p>
+      </div>
+      <div class="col-12 col-lg-8 row g-3">
+        ${mediaField({
+          id: `slide-${index}-video`,
+          name: 'video',
+          label: 'Video - desktop',
+          value: slide.video || '',
+          file: 'video_file',
+          accept: 'video/mp4,video/webm,video/quicktime',
+          hint: '/images/hero-outdoor-desktop.mp4',
+          upload: media,
+        })}
+        ${mediaField({
+          id: `slide-${index}-video-mobile`,
+          name: 'video_mobile',
+          label: 'Video - phone',
+          value: slide.video_mobile || '',
+          file: 'video_mobile_file',
+          accept: 'video/mp4,video/webm,video/quicktime',
+          hint: 'empty: the desktop video is used on phones too',
+          upload: media,
+        })}
+        ${mediaField({
+          id: `slide-${index}-poster`,
+          name: 'poster',
+          label: 'Still - desktop',
+          value: slide.poster || '',
+          file: 'poster_file',
+          accept: 'image/jpeg,image/png,image/webp,image/avif',
+          hint: 'shown while the video loads, optional',
+          upload: media,
+        })}
+        ${mediaField({
+          id: `slide-${index}-poster-mobile`,
+          name: 'poster_mobile',
+          label: 'Still - phone',
+          value: slide.poster_mobile || '',
+          file: 'poster_mobile_file',
+          accept: 'image/jpeg,image/png,image/webp,image/avif',
+          hint: 'optional',
+          upload: media,
+        })}
+        ${textField({ id: `slide-${index}-title`, name: 'title', label: 'Heading on the video', value: slide.title || '', col: 'col-12 col-lg-6', attrs: 'maxlength="120"' })}
+        ${textField({ id: `slide-${index}-text`, name: 'text', label: 'Text under the heading', value: slide.text || '', col: 'col-12 col-lg-6', attrs: 'maxlength="300"' })}
+        ${textField({ id: `slide-${index}-link`, name: 'link', label: 'Link for the whole slide', value: slide.url || '', col: 'col-12 col-lg-6', attrs: 'maxlength="300" placeholder="/collections/outdoor-range - used when there is no button"' })}
+        ${textField({ id: `slide-${index}-button-label`, name: 'button_label', label: 'Button label', value: (slide.button && slide.button.label) || '', col: 'col-6 col-lg-3', attrs: 'maxlength="60" placeholder="Shop Outdoor"' })}
+        ${textField({ id: `slide-${index}-button-url`, name: 'button_url', label: 'Button link', value: (slide.button && slide.button.url) || '', col: 'col-6 col-lg-3', attrs: 'maxlength="300" placeholder="/collections/outdoor-range"' })}
+      </div>
+    </div>
+    <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span class="fs-8 text-secondary">
+        ${media
+          ? 'A file you pick is stored in R2 and the path above is updated to it.'
+          : 'No MEDIA bucket is bound, so only a path or a URL can be saved.'}
+        The button keeps its styling, and the carousel its timing - neither is editable here.
+      </span>
+      <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save hero</button>
+    </div>
+  </form>`;
+
+/**
+ * `/admin/home` - the announcement bar and the hero. Both are already on the
+ * storefront (`views/chrome.js` renders the bar on every page, `views/home.js`
+ * the hero video with its wording and links); this screen only changes what they
+ * say and which files they use, so the homepage keeps its layout.
+ */
+export const homeView = ({ settings = {}, hero = null, media = true } = {}) => {
+  const slides = (hero && Array.isArray(hero.data.slides) && hero.data.slides) || [];
+
+  return html`
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+      <div>
+        <h1 class="heading-font text-uppercase h4 mb-1">Home page content</h1>
+        <p class="text-secondary fs-7 mb-0">
+          The announcement bar that sits above the header on every page, and the video, wording and links of the hero.
+          Both are on the site already - these forms change what they show, never how they are laid out.
+        </p>
+        <p class="text-secondary fs-8 mb-0">
+          <a class="text-secondary" href="/admin/categories">Product categories</a> live on their own screen.
+        </p>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <a class="btn btn-outline-dark btn-sm rounded px-3" href="/" target="_blank" rel="noopener">Preview the homepage</a>
+      </div>
+    </div>
+
+    ${media
+      ? ''
+      : html`<div class="alert alert-warning rounded-3 fs-7" role="alert">
+          <strong>No MEDIA bucket is bound to this Worker</strong>, so a file picked below cannot be stored. The field
+          next to it still takes a path such as <code>/images/hero-outdoor-desktop.mp4</code> or a full URL.
+        </div>`}
+
+    <section class="card border-0 shadow-sm rounded-3 mb-4">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase mb-1">Announcement bar</h2>
+        <p class="text-secondary fs-7 mb-3">
+          The strip at the very top of the site. Leave the icon empty for a bar with only the message.
+        </p>
+        <div class="mb-3">${announcementBar(settings)}</div>
+        <form method="post" action="/admin/home/announcement" class="row g-3">
+          ${textField({ id: 'bar-text', name: 'announcement_text', label: 'Message', value: settings.announcement_text || '', col: 'col-12 col-lg-6', attrs: 'maxlength="160" required' })}
+          ${textField({ id: 'bar-icon', name: 'announcement_icon', label: 'Icon', value: settings.announcement_icon || '', col: 'col-12 col-lg-6', attrs: 'maxlength="300" placeholder="empty: no icon"' })}
+          <div class="col-12 d-flex justify-content-lg-end">
+            <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save bar</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <h2 class="h6 text-uppercase mb-1">Hero</h2>
+    <p class="text-secondary fs-7 mb-3">
+      The carousel at the top of the homepage: its videos, the wording over them and where they link to. Saving one
+      slide rewrites that slide of the hero section, so the storefront shows it on its next request.
+    </p>
+    ${hero && hero.enabled === false
+      ? html`<div class="alert alert-warning rounded-3 fs-7" role="alert">
+          <strong>This hero block is switched off</strong> (<code>sections.enabled = 0</code>), so the homepage does not
+          show it at all. Saving still updates it, and it appears as soon as the row is enabled again.
+        </div>`
+      : ''}
+    ${slides.length
+      ? slides.map((slide, index) => heroSlide({ slide, index, section: hero, media }))
+      : html`<div class="card border-0 shadow-sm rounded-3">
+          <div class="card-body text-center py-5">
+            <h3 class="h5 mb-2">No hero section</h3>
+            <p class="text-secondary fs-7 mb-0">
+              The homepage has no <code>hero</code> block in <code>sections</code>, so there is no video to edit.
+            </p>
+          </div>
+        </div>`}
+  `;
+};
