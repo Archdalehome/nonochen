@@ -132,6 +132,16 @@ await check('/admin/categories', {
   expect: 303,
   headers: { location: '/admin/login?next=%2Fadmin%2Fcategories' },
 });
+// The product screens and actions sit behind the same session, posts included.
+await check('/admin/categories/products?slug=outdoor-range', {
+  expect: 303,
+  headers: { location: '/admin/login?next=%2Fadmin%2Fcategories%2Fproducts' },
+});
+await check('/admin/products/create', {
+  init: { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'title=nope' },
+  expect: 303,
+  headers: { location: '/admin/login?next=%2Fadmin%2Fproducts%2Fcreate' },
+});
 await check('/admin/login', { contains: ['Sign in', 'name="username"', 'name="password"'], headers: { 'x-robots-tag': 'noindex' } });
 await check('/admin/login', {
   init: {
@@ -155,16 +165,29 @@ const login = await check('/admin/login', {
 const adminCookie = ((login.res && login.res.headers.get('set-cookie')) || '').split(';')[0];
 const admin = { cookie: adminCookie };
 const adminForm = { ...admin, 'content-type': 'application/x-www-form-urlencoded' };
+/** The admin forms are plain POSTs, so their bodies are built the same way. */
+const adminBody = (fields) =>
+  Object.entries(fields)
+    .map(([name, value]) => `${name}=${encodeURIComponent(value)}`)
+    .join('&');
 console.log(`     session cookie: ${adminCookie ? 'set' : '(none)'}`);
 await check('/admin/categories', { init: { headers: admin }, contains: ['Product categories', 'Add a category'] });
+// A category that is not there is a 404 inside the admin, not a stack trace.
+await check('/admin/categories/products?slug=no-such-category', {
+  init: { headers: admin },
+  expect: 404,
+  contains: ['Not found'],
+});
 
 // The round trip runs on a hidden row whose name carries a timestamp, so a
 // smoke test against production never collides with a parallel run and never
-// disturbs the public bar.
+// disturbs the public bar. It filters on a tag, so the product round trip below
+// can add, unlink and delete a product of its own.
 const smokeStamp = Date.now();
 const smokeName = `Smoke Test ${smokeStamp}`;
 const smokeSlug = `smoke-test-${smokeStamp}`;
-const smokeBody = `name=${smokeName}&slug=${smokeSlug}&filter_type=all&enabled=0`;
+const smokeTag = `smoke-shelf-${smokeStamp}`;
+const smokeBody = `name=${encodeURIComponent(smokeName)}&slug=${smokeSlug}&filter_type=tag&filter_value=${smokeTag}&enabled=0`;
 await check('/admin/categories', {
   init: { method: 'POST', headers: adminForm, body: smokeBody },
   expect: 303,
@@ -192,7 +215,15 @@ if (!smokeId) {
     init: {
       method: 'POST',
       headers: adminForm,
-      body: `id=${smokeId}&name=${smokeName}&slug=${smokeSlug}&filter_type=all&enabled=0&position=99`,
+      body: adminBody({
+        id: smokeId,
+        name: smokeName,
+        slug: smokeSlug,
+        filter_type: 'tag',
+        filter_value: smokeTag,
+        enabled: '0',
+        position: '99',
+      }),
     },
     expect: 303,
     headers: { location: '/admin/categories?flash=saved' },
@@ -202,6 +233,114 @@ if (!smokeId) {
     expect: 303,
     headers: { location: '/admin/categories?flash=moved' },
   });
+}
+
+// The products of that category: create one, edit it, take it out of the shelf,
+// put it back and delete it again. It stays out of the homepage rows and its
+// handle carries the timestamp, so a run that dies half way leaves something
+// easy to spot instead of a product a shopper would notice.
+const productName = `Smoke Product ${smokeStamp}`;
+const productHandle = `smoke-product-${smokeStamp}`;
+const productFields = {
+  category_slug: smokeSlug,
+  title: productName,
+  handle: productHandle,
+  price: '12.34',
+  image: '/images/logo.svg',
+  summary: 'Created by the deploy smoke test.',
+  sold_out: '0',
+  is_new: '0',
+  price_from: '0',
+  show_in_home_grid: '0',
+};
+const productScreen = `/admin/categories/products?slug=${smokeSlug}`;
+const productFlash = (query) => `${productScreen}&${query}`;
+
+await check('/admin/products/create', {
+  init: { method: 'POST', headers: adminForm, body: adminBody(productFields) },
+  expect: 303,
+  headers: { location: productFlash('flash=product-created') },
+});
+// A price that is not a number and a slug that is taken have to bounce back
+// without writing a row.
+await check('/admin/products/create', {
+  init: { method: 'POST', headers: adminForm, body: adminBody({ ...productFields, title: 'No price', price: '' }) },
+  expect: 303,
+  headers: { location: productFlash('error=product-price') },
+});
+await check('/admin/products/create', {
+  init: { method: 'POST', headers: adminForm, body: adminBody({ ...productFields, title: 'Copy of the smoke product' }) },
+  expect: 303,
+  headers: { location: productFlash('error=product-duplicate') },
+});
+
+const shelf = await check(productScreen, {
+  init: { headers: admin },
+  contains: [productName, 'Delete product', 'Remove from this category'],
+});
+const productId = (shelf.body.match(/id="p-(\d+)-title"/) || [])[1];
+if (!productId) {
+  failures++;
+  console.log('FAIL the product screen has no editor for the smoke product');
+} else {
+  await check(`/products/${productHandle}`, { contains: [productName] });
+
+  await check('/admin/products/save', {
+    init: {
+      method: 'POST',
+      headers: adminForm,
+      // The real form carries every field of the row, tag included - posting a
+      // blank tag would take the product out of the category it was edited from.
+      body: adminBody({
+        ...productFields,
+        id: productId,
+        title: `${productName} v2`,
+        price: '99.99',
+        cat_handle: smokeTag,
+        cat_label: smokeName,
+      }),
+    },
+    expect: 303,
+    headers: { location: productFlash('flash=product-saved') },
+  });
+  await check(productScreen, { init: { headers: admin }, contains: [`${productName} v2`, 'value="99.99"'] });
+
+  await check('/admin/products/remove', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ id: productId, category_slug: smokeSlug }) },
+    expect: 303,
+    headers: { location: productFlash('flash=product-removed') },
+  });
+  const unlinked = await check(productScreen, {
+    init: { headers: admin },
+    contains: ['No products in this category yet'],
+  });
+  if (unlinked.body.includes(`id="p-${productId}-title"`)) {
+    failures++;
+    console.log('FAIL the product stayed in the category after being removed');
+  }
+  if (!unlinked.body.includes(`<option value="${productId}">`)) {
+    failures++;
+    console.log('FAIL the removed product is missing from the add-product picker');
+  }
+
+  await check('/admin/products/add', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ category_slug: smokeSlug, product_id: productId }) },
+    expect: 303,
+    headers: { location: productFlash('flash=product-added') },
+  });
+  await check(productScreen, { init: { headers: admin }, contains: [`id="p-${productId}-title"`] });
+
+  await check('/admin/products/delete', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ id: productId, category_slug: smokeSlug }) },
+    expect: 303,
+    headers: { location: productFlash('flash=product-deleted') },
+  });
+  await check(`/products/${productHandle}`, { expect: 404 });
+  const emptied = await check(productScreen, { init: { headers: admin } });
+  if (emptied.body.includes(productName)) {
+    failures++;
+    console.log('FAIL the deleted product is still listed on the category screen');
+  }
 }
 
 await check('/admin/categories/delete', {

@@ -116,9 +116,11 @@ can also be started by hand from the Actions tab (or `gh workflow run deploy.yml
    with `SMOKE_ADMIN_USER` /
    `SMOKE_ADMIN_PASSWORD`,
    add a hidden `smoke-<timestamp>` category, reject a duplicate slug and a bad
-   slug, edit it, move it, delete it again and sign out - all against the live
-   D1 (`/wrangler.jsonc`, `/src/...`, `/migrations/...` have to keep returning
-   404 as well);
+   slug, edit it, move it, create a `smoke-product-<timestamp>` product in it,
+   reject a bad price and a duplicate product slug, edit that product, take it
+   out of the category and put it back, delete the product, delete the category
+   and sign out - all against the live D1 (`/wrangler.jsonc`, `/src/...`,
+   `/migrations/...` have to keep returning 404 as well);
 5. if the push touched `images/`, `npm run media:remote` syncs the bucket (a push
    that only changes code skips it);
 6. the Wrangler log is uploaded as a build artifact when a deploy fails.
@@ -152,6 +154,12 @@ listed at the top of the mobile menu as well).
 
 * `/admin/login` - sign in with **admin / admin** (see below to change it)
 * `/admin/categories` - add, rename, reorder, hide and delete categories
+* `/admin/categories/products?slug=<slug>` - the products one category lists:
+  edit any row, add a product that is already in the shop, create a brand new
+  one, take a product out of the category, or delete it for good
+
+Every category row links straight to that screen ("Manage the products in this
+category").
 
 Each row controls:
 
@@ -176,6 +184,34 @@ The migration is idempotent (`create table if not exists`, `insert or ignore`),
 so applying it twice - for example once by hand and once by the pipeline - is
 harmless.
 
+### The products in a category
+
+`/admin/categories/products?slug=<slug>` (linked from every row above) shows the
+products the header link leads to, and changes them without touching D1 by hand:
+
+* **edit** any product - title, slug, price, "was" price, badge, image, tag
+  handle/label, swatch colour, order, summary, description, `sold out`, `new`,
+  the `from` label, whether it may appear in the homepage rows, and the SEO title
+  / description. Saving rewrites that `products` row;
+* **add** a product that is already in the shop (the picker only offers the ones
+  that are not in this category yet), or **create** a brand new one - it lands in
+  the category it was created from;
+* **remove** a product from this category without deleting it, or **delete** it
+  for good (its variants, media and cart lines go with it). The destructive
+  buttons ask first; without JS the form simply submits.
+
+What "in this category" means follows the row's filter:
+
+| filter | adding | removing |
+| --- | --- | --- |
+| collection | a `product_collections` row (and the product's own `collection_handle`, when it is still empty) | that row goes, the pointer is cleared |
+| tag | the product's `cat_handle` / `cat_label` become the filter value | they are cleared again |
+| all products | nothing to add, every product is listed already | nothing to remove |
+
+Both writes invalidate the Worker's 30 second product cache, so the storefront
+shows the change on its next request. A category lists at most 200 products on
+that screen; the storefront reads the same rows, so it shows the same list.
+
 ### Changing the password
 
 ```bash
@@ -191,13 +227,14 @@ is the only protection there is - add the same values as `SMOKE_ADMIN_USER` /
 
 ## Editing the content
 
-Only the top categories have an admin UI; everything else lives in Cloudflare and
-can be changed without a deploy:
+The categories - and the products in them - have an admin UI; everything else
+lives in Cloudflare and can be changed without a deploy:
 
 | what | where |
 | --- | --- |
-| copy, menus, homepage blocks, products, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
+| copy, menus, homepage blocks, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
 | the header categories | `/admin/categories` (see above), or the `categories` table directly |
+| the products inside a category | `/admin/categories/products?slug=<slug>` (see above), or the `products` / `product_collections` / `product_variants` tables directly |
 | images and video | R2 `el-media` - dashboard -> *R2 -> el-media -> Objects*, or drop files into `./images` and run `npm run media:remote` |
 | the defaults used to (re)seed a database | `scripts/data/content.mjs`, then `npm run seed:build`, then `npm run db:remote` |
 | worker name, vars, bindings | `wrangler.jsonc` (a change there needs a `git push` to take effect) |
@@ -215,8 +252,8 @@ scripts/              setup.mjs, upload-media.mjs, wrangler-cli.mjs (shared help
                       fetch-media.mjs, build-seed.mjs, check.mjs, smoke.mjs, data/
 src/index.js          router + request handlers (storefront + /admin)
 src/lib/              html.js (templates), db.js (queries), cart.js (cart + cookies),
-                      cookies.js (cookie helpers), admin.js (login, session, category rules)
+                      cookies.js (cookie helpers), admin.js (login, session, category + product rules)
 src/views/            layout, chrome (incl. the header categories), home, product,
-                      collection, cart, cart-drawer, admin (login + category manager), ...
+                      collection, cart, cart-drawer, admin (login, category manager, the products of a category), ...
 _scratch/             scraped dumps used while writing the views (git-ignored)
 ```

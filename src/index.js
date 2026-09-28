@@ -1,6 +1,7 @@
 import { html, render } from './lib/html.js';
 import {
   addEnquiry,
+  addProductToCategory,
   addSubscriber,
   allCategories,
   categories,
@@ -9,18 +10,25 @@ import {
   collection,
   collections,
   createCategory,
+  createProduct,
   deleteCategory,
+  deleteProduct,
   footerGroups,
   moveCategory,
   navigation,
   productByHandle,
+  productById,
+  productHandleTaken,
   productList,
+  productPicker,
   productsByCategory,
   relatedProducts,
+  removeProductFromCategory,
   searchProducts,
   sections,
   settings as loadSettings,
   updateCategory,
+  updateProduct,
 } from './lib/db.js';
 import {
   createSession,
@@ -28,6 +36,7 @@ import {
   defaultPasswordInUse,
   destroySession,
   normalizeCategory,
+  normalizeProduct,
   safeNext,
   sessionUser,
   verifyLogin,
@@ -48,7 +57,7 @@ import { SORTS, collectionIndex, collectionView } from './views/collection.js';
 import { productView } from './views/product.js';
 import { cartPage, checkoutPage, thankYouPage } from './views/cart.js';
 import { contentPage, searchPage } from './views/pages.js';
-import { adminNotFound, adminPage, categoriesView, loginView } from './views/admin.js';
+import { adminNotFound, adminPage, categoriesView, categoryProductsView, loginView } from './views/admin.js';
 import { cartDrawerContent } from './views/cart-drawer.js';
 
 /* --------------------------------------------------------------- responses ---- */
@@ -329,10 +338,47 @@ const ADMIN_NOTICES = {
   missing: { kind: 'danger', message: 'That category could not be found.' },
 };
 
-const adminNotice = (url) => {
-  const key = url.searchParams.get('error') || url.searchParams.get('flash') || '';
-  return ADMIN_NOTICES[key] || null;
+/**
+ * The same idea for the product screen, which lives inside a category. The keys
+ * are prefixed so a `?flash=` from one screen can never read oddly on the other.
+ */
+const PRODUCT_NOTICES = {
+  'product-created': { kind: 'success', message: 'Product created - it is listed in this category already.' },
+  'product-saved': { kind: 'success', message: 'Product saved.' },
+  'product-added': { kind: 'success', message: 'Product added to this category.' },
+  'product-removed': { kind: 'success', message: 'Product removed from this category. The product itself is untouched.' },
+  'product-deleted': { kind: 'success', message: 'Product deleted, along with its variants, media and cart lines.' },
+  'product-title': { kind: 'danger', message: 'A product needs a title.' },
+  'product-handle': {
+    kind: 'danger',
+    message: 'That product slug is not valid - use a-z, 0-9 and dashes (up to 80 characters).',
+  },
+  'product-duplicate': { kind: 'danger', message: 'Another product already uses that slug.' },
+  'product-price': { kind: 'danger', message: 'The price has to be a number, for example 249 or 249.99.' },
+  'product-compare': { kind: 'danger', message: 'The "was" price has to be a number, or left empty.' },
+  'product-image': {
+    kind: 'danger',
+    message: 'A product needs an image: a path such as /images/b-bag-grey.png or a full https:// URL.',
+  },
+  'product-missing': { kind: 'danger', message: 'That product is no longer in the catalogue.' },
+  'product-pick': { kind: 'danger', message: 'Pick a product from the list first.' },
+  'product-filter': {
+    kind: 'danger',
+    message: 'This category lists every product, so there is nothing to add or remove.',
+  },
 };
+
+const adminNotice = (url, notices = ADMIN_NOTICES) => {
+  const key = url.searchParams.get('error') || url.searchParams.get('flash') || '';
+  return notices[key] || null;
+};
+
+/** The product screen of one category, plus its `?flash=` / `?error=`. */
+const productScreen = (slug, query = '') =>
+  `/admin/categories/products?slug=${encodeURIComponent(slug)}${query ? `&${query}` : ''}`;
+
+/** How many products the admin screen lists before it stops rendering forms. */
+const ADMIN_PRODUCT_LIMIT = 200;
 
 const adminResponse = ({ env, user = '', title, body, status = 200, flash = null }) =>
   new Response(
@@ -433,6 +479,111 @@ const adminCategoryMove = async (request, env) => {
 };
 
 /**
+ * The products one category lists - the same rows the storefront renders, so
+ * the editors below write exactly what `/category/<slug>` (or the header link)
+ * shows a shopper a moment later.
+ */
+const adminCategoryProductsPage = async (request, env, user) => {
+  const url = new URL(request.url);
+  const category = await categoryBySlug(env.DB, String(url.searchParams.get('slug') || ''));
+  if (!category) {
+    return adminResponse({
+      env,
+      user,
+      title: 'Not found',
+      body: adminNotFound({ message: 'That category does not exist (any more).' }),
+      status: 404,
+    });
+  }
+
+  const [list, picker] = await Promise.all([
+    productsByCategory(env.DB, category, ADMIN_PRODUCT_LIMIT),
+    productPicker(env.DB),
+  ]);
+  return adminResponse({
+    env,
+    user,
+    title: `Products in ${category.name}`,
+    body: categoryProductsView({
+      category,
+      list,
+      picker,
+      symbol: currencySymbol(env),
+      limit: ADMIN_PRODUCT_LIMIT,
+    }),
+    flash: adminNotice(url, PRODUCT_NOTICES),
+  });
+};
+
+/** Reads the form and the category it was submitted from (`category_slug`). */
+const productFormContext = async (request, env) => {
+  const data = await readForm(request);
+  const category = await categoryBySlug(env.DB, String(data.category_slug || ''));
+  return { data, category };
+};
+
+const adminProductCreate = async (request, env) => {
+  const { data, category } = await productFormContext(request, env);
+  if (!category) return redirect('/admin/categories?error=missing');
+  const { error, values } = normalizeProduct(data);
+  if (error) return redirect(productScreen(category.slug, `error=product-${error}`));
+  if (await productHandleTaken(env.DB, values.handle)) {
+    return redirect(productScreen(category.slug, 'error=product-duplicate'));
+  }
+
+  const id = await createProduct(env.DB, values);
+  if (!id) return redirect(productScreen(category.slug, 'error=product-missing'));
+  // The new product lands in the category it was created from.
+  await addProductToCategory(env.DB, category, id);
+  return redirect(productScreen(category.slug, 'flash=product-created'));
+};
+
+const adminProductSave = async (request, env) => {
+  const { data, category } = await productFormContext(request, env);
+  if (!category) return redirect('/admin/categories?error=missing');
+  const id = Number(data.id) || 0;
+  if (!id) return redirect(productScreen(category.slug, 'error=product-missing'));
+  const { error, values } = normalizeProduct(data);
+  if (error) return redirect(productScreen(category.slug, `error=product-${error}`));
+  if (await productHandleTaken(env.DB, values.handle, id)) {
+    return redirect(productScreen(category.slug, 'error=product-duplicate'));
+  }
+
+  const saved = await updateProduct(env.DB, id, values);
+  return redirect(productScreen(category.slug, saved ? 'flash=product-saved' : 'error=product-missing'));
+};
+
+/** Adds a product that is already in the catalogue to the category. */
+const adminProductAdd = async (request, env) => {
+  const { data, category } = await productFormContext(request, env);
+  if (!category) return redirect('/admin/categories?error=missing');
+  const id = Number(data.product_id) || 0;
+  if (!id || !(await productById(env.DB, id))) return redirect(productScreen(category.slug, 'error=product-pick'));
+
+  const added = await addProductToCategory(env.DB, category, id);
+  return redirect(productScreen(category.slug, added ? 'flash=product-added' : 'error=product-filter'));
+};
+
+/** Takes a product out of the category, leaving the product in the shop. */
+const adminProductRemove = async (request, env) => {
+  const { data, category } = await productFormContext(request, env);
+  if (!category) return redirect('/admin/categories?error=missing');
+  const id = Number(data.id) || 0;
+  if (!id || !(await productById(env.DB, id))) return redirect(productScreen(category.slug, 'error=product-missing'));
+
+  const removed = await removeProductFromCategory(env.DB, category, id);
+  return redirect(productScreen(category.slug, removed ? 'flash=product-removed' : 'error=product-filter'));
+};
+
+/** Deletes the product itself: shop, collections and carts. */
+const adminProductDelete = async (request, env) => {
+  const { data, category } = await productFormContext(request, env);
+  if (!category) return redirect('/admin/categories?error=missing');
+  const deleted = await deleteProduct(env.DB, data.id);
+  return redirect(productScreen(category.slug, deleted ? 'flash=product-deleted' : 'error=product-missing'));
+};
+
+/**
  * Everything under /admin. Only /admin/login is public; every other screen and
  * action needs a valid session cookie or bounces back to the login page.
  */
@@ -457,6 +608,14 @@ const adminRoute = async (request, env, path, method) => {
   if (path === '/admin/categories/save') return isPost ? adminCategorySave(request, env) : methodNotAllowed();
   if (path === '/admin/categories/delete') return isPost ? adminCategoryDelete(request, env) : methodNotAllowed();
   if (path === '/admin/categories/move') return isPost ? adminCategoryMove(request, env) : methodNotAllowed();
+  if (path === '/admin/categories/products') {
+    return isGet ? adminCategoryProductsPage(request, env, user) : methodNotAllowed();
+  }
+  if (path === '/admin/products/create') return isPost ? adminProductCreate(request, env) : methodNotAllowed();
+  if (path === '/admin/products/save') return isPost ? adminProductSave(request, env) : methodNotAllowed();
+  if (path === '/admin/products/add') return isPost ? adminProductAdd(request, env) : methodNotAllowed();
+  if (path === '/admin/products/remove') return isPost ? adminProductRemove(request, env) : methodNotAllowed();
+  if (path === '/admin/products/delete') return isPost ? adminProductDelete(request, env) : methodNotAllowed();
 
   return adminResponse({
     env,

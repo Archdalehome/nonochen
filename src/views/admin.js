@@ -1,4 +1,4 @@
-import { html, safe } from '../lib/html.js';
+import { html, money, safe } from '../lib/html.js';
 import { CATEGORY_FILTERS } from '../lib/admin.js';
 
 /* ---------------------------------------------------------------- shell ---- */
@@ -100,14 +100,19 @@ const filterSelect = ({ name, value, id }) => html`
     )}
   </select>`;
 
-const enabledToggle = ({ id, checked, hidden = false }) => html`
-  <!-- Hidden first, checkbox second: the last value in the body wins, so an
-       unchecked box still posts enabled=0. -->
-  <input type="hidden" name="enabled" value="0">
+/**
+ * Hidden first, checkbox second: the last value in the body wins, so an
+ * unchecked box still posts a 0.
+ */
+const toggleField = ({ id, name, label, checked }) => html`
+  <input type="hidden" name="${name}" value="0">
   <div class="form-check form-switch mb-0">
-    <input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="${id}" ${checked ? safe('checked') : ''}>
-    <label class="form-check-label fs-8 text-uppercase" for="${id}">${hidden ? 'Visible in the header' : 'Visible'}</label>
+    <input class="form-check-input" type="checkbox" role="switch" name="${name}" value="1" id="${id}" ${checked ? safe('checked') : ''}>
+    <label class="form-check-label fs-8 text-uppercase" for="${id}">${label}</label>
   </div>`;
+
+const enabledToggle = ({ id, checked, hidden = false }) =>
+  toggleField({ id, name: 'enabled', checked, label: hidden ? 'Visible in the header' : 'Visible' });
 
 const filterValueField = (item, id) => html`
   <label class="form-label fs-8 text-uppercase mb-1" for="${id}">Filter value</label>
@@ -155,6 +160,7 @@ const categoryRow = (item, index, count) => html`
       <span class="fs-8 text-secondary">
         Links to <code>${item.href}</code> &middot;
         ${item.filterType === 'all' ? 'all products' : html`${FILTER_LABEL[item.filterType]}: <code>${item.filterValue}</code>`}
+        &middot; <a href="/admin/categories/products?slug=${item.slug}">Manage the products in this category</a>
       </span>
       <div class="d-flex align-items-center gap-2">
         <form method="post" action="/admin/categories/move" class="mb-0">
@@ -229,6 +235,183 @@ export const categoriesView = ({ list = [] }) => html`
         </div>
       </div>`}
 `;
+
+/* ----------------------------------------------------- category products ---- */
+
+/** One labelled input. `attrs` is a literal attribute string the caller writes by hand. */
+const textField = ({ id, name, label, value = '', col = 'col-6 col-lg-2', type = 'text', attrs = '' }) => html`
+  <div class="${col}">
+    <label class="form-label fs-8 text-uppercase mb-1" for="${id}">${label}</label>
+    <input type="${type}" class="form-control form-control-sm" id="${id}" name="${name}" value="${value}" ${safe(attrs)}>
+  </div>`;
+
+const textAreaField = ({ id, name, label, value = '', rows = 2, col = 'col-12', attrs = '' }) => html`
+  <div class="${col}">
+    <label class="form-label fs-8 text-uppercase mb-1" for="${id}">${label}</label>
+    <textarea class="form-control form-control-sm" id="${id}" name="${name}" rows="${rows}" ${safe(attrs)}>${value}</textarea>
+  </div>`;
+
+/** The fields the create and the edit forms share; `prefix` keeps the ids unique. */
+const productFields = (item, prefix) => html`
+  ${textField({ id: `${prefix}-title`, name: 'title', label: 'Title', value: item.title, col: 'col-12 col-lg-4', attrs: 'maxlength="120" required' })}
+  ${textField({ id: `${prefix}-slug`, name: 'handle', label: 'Slug', value: item.handle || '', attrs: 'maxlength="80" placeholder="auto, e.g. b-bag-grey"' })}
+  ${textField({ id: `${prefix}-price`, name: 'price', label: 'Price', value: item.price === undefined ? '' : item.price, type: 'number', attrs: 'min="0" step="0.01" required' })}
+  ${textField({ id: `${prefix}-compare`, name: 'compare_at_price', label: 'Was', value: item.compare_at_price === undefined || item.compare_at_price === null ? '' : item.compare_at_price, type: 'number', attrs: 'min="0" step="0.01"' })}
+  ${textField({ id: `${prefix}-badge`, name: 'badge', label: 'Badge', value: item.badge || '', attrs: 'maxlength="40" placeholder="Best seller"' })}
+  ${textField({ id: `${prefix}-image`, name: 'image', label: 'Image', value: item.image || '', col: 'col-12 col-lg-4', attrs: 'maxlength="300" required placeholder="/images/b-bag-grey.png"' })}
+  ${textField({ id: `${prefix}-cat-handle`, name: 'cat_handle', label: 'Tag handle', value: item.cat_handle || '', attrs: 'maxlength="60" placeholder="outdoor"' })}
+  ${textField({ id: `${prefix}-cat-label`, name: 'cat_label', label: 'Tag label', value: item.cat_label || '', attrs: 'maxlength="60" placeholder="Outdoor"' })}
+  ${textField({ id: `${prefix}-swatch`, name: 'colour_hex', label: 'Swatch', value: item.colour_hex || '#5f6062', attrs: 'maxlength="20"' })}
+  ${textField({ id: `${prefix}-order`, name: 'sort_order', label: 'Order', value: item.sort_order === undefined || item.sort_order === null ? '' : item.sort_order, type: 'number', attrs: 'min="0" max="9999"' })}
+  ${textAreaField({ id: `${prefix}-summary`, name: 'summary', label: 'Summary', value: item.summary || '', attrs: 'maxlength="300" placeholder="One line shown under the title"' })}
+  ${textAreaField({ id: `${prefix}-description`, name: 'description', label: 'Description', value: item.description || '', rows: 3, attrs: 'maxlength="2000"' })}
+  <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-sold-out`, name: 'sold_out', label: 'Sold out', checked: Boolean(item.sold_out) })}</div>
+  <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-new`, name: 'is_new', label: 'New', checked: Boolean(item.is_new) })}</div>
+  <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-from`, name: 'price_from', label: 'Show from', checked: Boolean(item.price_from) })}</div>
+  <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-grid`, name: 'show_in_home_grid', label: 'Homepage row', checked: Boolean(item.show_in_home_grid) })}</div>
+  ${textField({ id: `${prefix}-seo-title`, name: 'seo_title', label: 'SEO title', value: item.seo_title || '', col: 'col-12 col-lg-6', attrs: 'maxlength="120"' })}
+  ${textField({ id: `${prefix}-seo-description`, name: 'seo_description', label: 'SEO description', value: item.seo_description || '', col: 'col-12 col-lg-6', attrs: 'maxlength="300"' })}
+`;
+
+/** One product in the list: a summary, the editor for its fields and its actions. */
+const productEditor = (item, { category, canLink, symbol }) => html`
+  <article class="card border-0 shadow-sm rounded-3 mb-3">
+    <div class="card-header bg-white d-flex flex-wrap align-items-center gap-3">
+      <img src="${item.image}" alt="" width="48" height="48" class="rounded object-fit-contain bg-body-secondary">
+      <div class="flex-grow-1">
+        <h3 class="fs-6 mb-1">${item.title}</h3>
+        <p class="fs-8 text-secondary mb-0">
+          <code>${item.handle}</code> &middot; ${money(item.price, symbol)}
+          ${item.collection_handle ? html` &middot; collection <code>${item.collection_handle}</code>` : ''}
+        </p>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        ${item.soldOut ? html`<span class="badge text-bg-dark">Sold out</span>` : ''}
+        ${item.badge ? html`<span class="badge text-bg-light text-dark border">${item.badge}</span>` : ''}
+        ${item.inGrid ? '' : html`<span class="badge text-bg-light text-secondary border">Not on the homepage</span>`}
+      </div>
+    </div>
+    <form method="post" action="/admin/products/save">
+      <input type="hidden" name="id" value="${item.id}">
+      <input type="hidden" name="category_slug" value="${category.slug}">
+      <div class="card-body row g-3">${productFields(item, `p-${item.id}`)}</div>
+      <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="fs-8 text-secondary">Product #${item.id}</span>
+        <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save product</button>
+      </div>
+    </form>
+    <div class="card-footer bg-white border-top-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <a class="fs-8" href="/products/${item.handle}" target="_blank" rel="noopener">View the product page</a>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        ${canLink
+          ? html`<form method="post" action="/admin/products/remove" class="mb-0"
+                       data-admin-confirm="Take &quot;${item.title}&quot; out of ${category.name}? The product itself stays in the shop.">
+              <input type="hidden" name="id" value="${item.id}">
+              <input type="hidden" name="category_slug" value="${category.slug}">
+              <button class="btn btn-outline-secondary btn-sm rounded px-3" type="submit">Remove from this category</button>
+            </form>`
+          : ''}
+        <form method="post" action="/admin/products/delete" class="mb-0"
+              data-admin-confirm="Delete &quot;${item.title}&quot; completely? It leaves the shop, every collection and every cart.">
+          <input type="hidden" name="id" value="${item.id}">
+          <input type="hidden" name="category_slug" value="${category.slug}">
+          <button class="btn btn-outline-danger btn-sm rounded px-3" type="submit">Delete product</button>
+        </form>
+      </div>
+    </div>
+  </article>`;
+
+/**
+ * `/admin/categories/products` - the products one category lists, with the
+ * forms that add, edit, unlink and delete them. Collection and tag categories
+ * get the add/remove controls; an "all products" category only gets the editors.
+ */
+export const categoryProductsView = ({ category, list = [], picker = [], symbol = '£', limit = 200 }) => {
+  const listed = new Set(list.map((item) => item.id));
+  const candidates = picker.filter((item) => !listed.has(item.id));
+  const canLink = category.filterType !== 'all' && Boolean(category.filterValue);
+  const note =
+    category.filterType === 'collection'
+      ? html`Lists <strong>every product in the collection</strong> <code>${category.filterValue}</code>. Adding writes a
+          <code>product_collections</code> row, removing takes it away again - the product stays in the shop either way.`
+      : category.filterType === 'tag'
+        ? html`Lists <strong>every product tagged</strong> <code>${category.filterValue}</code>. Adding sets the product's
+            tag handle and label, removing clears them again - the product stays in the shop either way.`
+        : html`Lists <strong>every product</strong>, so there is nothing to add or remove - a brand new product shows up
+            here straight away.`;
+
+  return html`
+    <p class="fs-8 mb-2">
+      <a class="text-secondary" href="/admin/categories">Product categories</a> / ${category.name}
+    </p>
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+      <div>
+        <h1 class="heading-font text-uppercase h4 mb-1">Products in ${category.name}</h1>
+        <p class="text-secondary fs-7 mb-0">${note}</p>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <a class="btn btn-outline-dark btn-sm rounded px-3" href="${category.href}" target="_blank" rel="noopener">Preview</a>
+        <a class="btn btn-outline-secondary btn-sm rounded px-3" href="/admin/categories">Back to categories</a>
+      </div>
+    </div>
+
+    <section class="card border-0 shadow-sm rounded-3 mb-4">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase mb-3">Add a product</h2>
+        <div class="row g-4">
+          <div class="col-12 col-lg-6">
+            ${canLink
+              ? html`<form method="post" action="/admin/products/add" class="row g-2 align-items-end">
+                  <input type="hidden" name="category_slug" value="${category.slug}">
+                  <div class="col-12 col-sm-8">
+                    <label class="form-label fs-8 text-uppercase mb-1" for="add-product">Product already in the shop</label>
+                    <select class="form-select form-select-sm" id="add-product" name="product_id" required>
+                      <option value="">Pick a product&hellip;</option>
+                      ${candidates.map((item) => html`<option value="${item.id}">${item.title}</option>`)}
+                    </select>
+                    <p class="fs-8 text-secondary mb-0 mt-1">
+                      ${candidates.length} product${candidates.length === 1 ? '' : 's'} outside this category.
+                    </p>
+                  </div>
+                  <div class="col-12 col-sm-4">
+                    <button class="btn btn-primary btn-sm rounded px-3 w-100" type="submit">Add to category</button>
+                  </div>
+                </form>`
+              : html`<p class="fs-7 text-secondary mb-0">Every product in the shop is listed here already.</p>`}
+          </div>
+          <div class="col-12 col-lg-6">
+            <details class="border rounded-3 p-3">
+              <summary class="fs-7 text-uppercase">Create a brand new product</summary>
+              <form method="post" action="/admin/products/create" class="row g-3 mt-2">
+                <input type="hidden" name="category_slug" value="${category.slug}">
+                ${productFields({ sold_out: 0, is_new: 0, price_from: 0, show_in_home_grid: 1, price: '' }, 'new')}
+                <div class="col-12 d-flex justify-content-end">
+                  <button class="btn btn-primary btn-sm rounded px-4" type="submit">Create product</button>
+                </div>
+              </form>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+      <h2 class="h6 text-uppercase mb-0">${list.length} product${list.length === 1 ? '' : 's'} listed</h2>
+      ${list.length >= limit
+        ? html`<span class="fs-8 text-secondary">Showing the first ${limit} - the storefront reads the same list.</span>`
+        : ''}
+    </div>
+
+    ${list.length
+      ? list.map((item) => productEditor(item, { category, canLink, symbol }))
+      : html`<div class="card border-0 shadow-sm rounded-3">
+          <div class="card-body text-center py-5">
+            <h2 class="h5 mb-2">No products in this category yet</h2>
+            <p class="text-secondary fs-7 mb-0">Add one above and it shows up in the header link straight away.</p>
+          </div>
+        </div>`}
+  `;
+};
 
 export const adminNotFound = ({ message = 'That admin page does not exist.' }) => html`
   <div class="card border-0 shadow-sm rounded-3">

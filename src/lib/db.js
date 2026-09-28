@@ -400,6 +400,199 @@ export const searchProducts = (db, term, limit = 24) => {
   });
 };
 
+/* ------------------------------------------------- product administration ---- */
+
+/** Every cached product read is prefix keyed, so one call clears them all. */
+const invalidateProducts = () => {
+  invalidate('list:');
+  invalidate('product:');
+  invalidate('collections'); // the collection list carries a product count
+};
+
+const PICKER_COLUMNS = 'id, handle, title, price, image, cat_handle, cat_label, collection_handle, sold_out';
+
+/** Light rows for the "add an existing product" picker on the admin screen. */
+export const productPicker = async (db) => {
+  const { results } = await db.prepare(`SELECT ${PICKER_COLUMNS} FROM products ORDER BY title`).all();
+  return results || [];
+};
+
+export const productById = async (db, id) => {
+  const row = await db
+    .prepare(`SELECT ${PICKER_COLUMNS} FROM products WHERE id = ?`)
+    .bind(Number(id) || 0)
+    .first();
+  return row || null;
+};
+
+export const productHandleTaken = async (db, handle, exceptId = 0) => {
+  const row = await db
+    .prepare('SELECT id FROM products WHERE handle = ? AND id != ?')
+    .bind(handle, Number(exceptId) || 0)
+    .first();
+  return Boolean(row);
+};
+
+/**
+ * Inserts one product from the admin form and returns its new id (0 when the
+ * insert did not happen). A blank order lands the product at the end of every
+ * listing - the storefront sorts on `sort_order, title`.
+ */
+export const createProduct = async (db, values) => {
+  const next = await db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS sort_order FROM products').first();
+  const sortOrder = values.sortOrder === null ? (next && next.sort_order) || 1 : values.sortOrder;
+  const result = await db
+    .prepare(
+      `INSERT INTO products (handle, title, short_title, price, compare_at_price, price_from, badge, image,
+                             cat_handle, cat_label, colour, colour_hex, summary, description,
+                             collection_handle, sold_out, is_new, show_in_home_grid, sort_order,
+                             seo_title, seo_description)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)`
+    )
+    .bind(
+      values.handle,
+      values.title,
+      values.shortTitle,
+      values.price,
+      values.compareAtPrice,
+      values.priceFrom,
+      values.badge,
+      values.image,
+      values.catHandle,
+      values.catLabel,
+      '', // the legacy single colour name - the swatch hex lives in colour_hex
+      values.colourHex,
+      values.summary,
+      values.description,
+      values.collectionHandle,
+      values.soldOut,
+      values.isNew,
+      values.inGrid,
+      sortOrder,
+      values.seoTitle,
+      values.seoDescription
+    )
+    .run();
+  invalidateProducts();
+  return Number(result.meta && result.meta.last_row_id) || 0;
+};
+
+/** Writes every field the admin screen edits; `false` when the row is gone. */
+export const updateProduct = async (db, id, values) => {
+  const result = await db
+    .prepare(
+      `UPDATE products
+          SET handle = ?1, title = ?2, short_title = ?3, price = ?4, compare_at_price = ?5,
+              price_from = ?6, badge = ?7, image = ?8, cat_handle = ?9, cat_label = ?10,
+              colour_hex = ?11, summary = ?12, description = ?13, sold_out = ?14, is_new = ?15,
+              show_in_home_grid = ?16, sort_order = COALESCE(?17, sort_order),
+              seo_title = ?18, seo_description = ?19
+        WHERE id = ?20`
+    )
+    .bind(
+      values.handle,
+      values.title,
+      values.shortTitle,
+      values.price,
+      values.compareAtPrice,
+      values.priceFrom,
+      values.badge,
+      values.image,
+      values.catHandle,
+      values.catLabel,
+      values.colourHex,
+      values.summary,
+      values.description,
+      values.soldOut,
+      values.isNew,
+      values.inGrid,
+      values.sortOrder,
+      values.seoTitle,
+      values.seoDescription,
+      Number(id) || 0
+    )
+    .run();
+  invalidateProducts();
+  return Number(result.meta && result.meta.changes) > 0;
+};
+
+/**
+ * Deletes a product for good. The dependent rows are removed by hand (carts
+ * included) so the delete works whatever `PRAGMA foreign_keys` says.
+ */
+export const deleteProduct = async (db, id) => {
+  const key = Number(id) || 0;
+  if (!key || !(await productById(db, key))) return false;
+  await db.batch([
+    db.prepare('DELETE FROM cart_items WHERE product_id = ?').bind(key),
+    db.prepare('DELETE FROM product_variants WHERE product_id = ?').bind(key),
+    db.prepare('DELETE FROM product_media WHERE product_id = ?').bind(key),
+    db.prepare('DELETE FROM product_usps WHERE product_id = ?').bind(key),
+    db.prepare('DELETE FROM product_collections WHERE product_id = ?').bind(key),
+    db.prepare('DELETE FROM products WHERE id = ?').bind(key),
+  ]);
+  invalidateProducts();
+  return true;
+};
+
+/**
+ * Puts an existing product in the category the admin is looking at:
+ *
+ *   collection -> a `product_collections` row (and the product's own pointer)
+ *   tag        -> the product's `cat_handle` / `cat_label` become the filter
+ *   all        -> nothing to do, every product is listed already
+ */
+export const addProductToCategory = async (db, item, productId) => {
+  const id = Number(productId) || 0;
+  if (!id || !item || item.filterType === 'all' || !item.filterValue) return false;
+  if (item.filterType === 'collection') {
+    await db.batch([
+      db
+        .prepare('INSERT OR IGNORE INTO product_collections (product_id, collection_handle, sort_order) VALUES (?1, ?2, 0)')
+        .bind(id, item.filterValue),
+      // Only fills a gap: a product that already points at a collection keeps it.
+      db
+        .prepare("UPDATE products SET collection_handle = ?2 WHERE id = ?1 AND (collection_handle IS NULL OR collection_handle = '')")
+        .bind(id, item.filterValue),
+    ]);
+  } else {
+    await db
+      .prepare('UPDATE products SET cat_handle = ?2, cat_label = ?3 WHERE id = ?1')
+      .bind(id, item.filterValue, item.name)
+      .run();
+  }
+  invalidateProducts();
+  return true;
+};
+
+/**
+ * Takes a product out of the category without touching the product itself: the
+ * collection link goes, or the tag that put it there is cleared. Returns
+ * `false` when the product was not in this category in the first place.
+ */
+export const removeProductFromCategory = async (db, item, productId) => {
+  const id = Number(productId) || 0;
+  if (!id || !item || item.filterType === 'all' || !item.filterValue) return false;
+  const product = await productById(db, id);
+  if (!product) return false;
+
+  if (item.filterType === 'collection') {
+    await db.batch([
+      db
+        .prepare('DELETE FROM product_collections WHERE product_id = ?1 AND collection_handle = ?2')
+        .bind(id, item.filterValue),
+      db
+        .prepare("UPDATE products SET collection_handle = '' WHERE id = ?1 AND collection_handle = ?2")
+        .bind(id, item.filterValue),
+    ]);
+  } else {
+    if (String(product.cat_handle || '').toLowerCase() !== String(item.filterValue).toLowerCase()) return false;
+    await db.prepare("UPDATE products SET cat_handle = '', cat_label = '' WHERE id = ?").bind(id).run();
+  }
+  invalidateProducts();
+  return true;
+};
+
 /* ------------------------------------------------------------------- misc ---- */
 
 export const defaultFeatures = (db) =>
