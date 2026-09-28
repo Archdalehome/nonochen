@@ -74,9 +74,12 @@ if (!handle) {
   await check(`/products/${handle}`, { contains: [handle] });
 }
 
+// The first collection *card* on /collections: the header and the drawer link to
+// collections as well, and those links get their own check below.
 const collections = await check('/collections');
-const collection = (collections.body.match(/\/collections\/([a-z0-9-]+)/) || [])[1];
+const collection = (collections.body.match(/href="\/collections\/([a-z0-9-]+)"[^>]*>\s*<h2/) || [])[1];
 if (collection) await check(`/collections/${collection}`);
+else console.log('     note: no collection cards on /collections');
 
 /* admin ------------------------------------------------------------------ */
 
