@@ -171,7 +171,7 @@ Each row controls:
 | --- | --- |
 | name | the label shown in the header |
 | slug | the unique key, also used for `/category/<slug>` |
-| link override | optional - empty means the label links at `/category/<slug>`; set it to reuse an existing page such as `/collections/outdoor-range` |
+| link override | optional - empty means the label links at `/category/<slug>`; set it to reuse an existing page such as `/collections/outdoor-range`. A `/collections/<handle>` no collection uses is flagged in red on the row: that link would 404, so nothing added to the category could show on the site |
 | products shown | `collection` (everything in a collection), `tag` (products whose `cat_handle` / `cat_label` matches) or `all products` |
 | order | position in the header row - the arrows move a row one step |
 | visible | unchecked rows stay in the admin but leave the storefront |
@@ -197,8 +197,10 @@ products the header link leads to, and changes them without touching D1 by hand:
   handle/label, swatch colour, order, summary, description, `sold out`, `new`,
   the `from` label, whether it may appear in the homepage rows, and the SEO title
   / description. Saving rewrites that `products` row;
-* **add** a product that is already in the shop (the picker only offers the ones
-  that are not in this category yet), or **create** a brand new one - it lands in
+* **add** a product that is already in the shop - the picker offers the products
+  this category does not list yet, plus the ones another category already holds as
+  locked entries naming that category (and the action refuses those with
+  `?error=product-taken`), or **create** a brand new one - it lands in
   the category it was created from;
 * **remove** a product from this category without deleting it, or **delete** it
   for good (its variants, media and cart lines go with it). The destructive
@@ -208,13 +210,29 @@ What "in this category" means follows the row's filter:
 
 | filter | adding | removing |
 | --- | --- | --- |
-| collection | a `product_collections` row (and the product's own `collection_handle`, when it is still empty) | that row goes, the pointer is cleared |
+| collection | a `product_collections` row (and the product's own `collection_handle`, when it is still empty) plus the product's category fields | that row goes, the pointer and the fields are cleared |
 | tag | the product's `cat_handle` / `cat_label` become the filter value | they are cleared again |
 | all products | nothing to add, every product is listed already | nothing to remove |
+
+**A product belongs to one category.** `cat_handle` and `cat_label` - the *Tag
+handle* and *Tag label* fields on the product form - are that category, so adding
+a product sets both to the category the admin is looking at, whichever filter the
+row uses, so the category page the storefront renders and the fields on the
+product always agree. A product that
+another category already holds cannot be added again: the picker locks it and the
+action answers `?error=product-taken`, and *Remove from this category* sets it
+free. The `product_collections` rows are curated lists rather than ownership, so
+the seeded products stay in every collection they were imported into.
 
 Both writes invalidate the Worker's 30 second product cache, so the storefront
 shows the change on its next request. A category lists at most 200 products on
 that screen; the storefront reads the same rows, so it shows the same list.
+
+When the row's link override is a `/collections/<handle>` that no collection
+answers to, both admin screens warn instead of letting the products disappear:
+the storefront link 404s, while the products themselves are still listed at
+`/category/<slug>`. Clear the override (or pick a collection that exists) to put
+them back on the link in the header.
 
 ### Changing the password
 

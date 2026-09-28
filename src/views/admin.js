@@ -119,7 +119,29 @@ const filterValueField = (item, id) => html`
   <input class="form-control form-control-sm" id="${id}" name="filter_value" value="${item.filterValue || ''}" maxlength="80"
          placeholder="${item.filterType === 'collection' ? 'collection handle' : item.filterType === 'all' ? 'not used' : 'tag, e.g. outdoor'}">`;
 
-const categoryRow = (item, index, count) => html`
+/**
+ * A `/collections/<handle>` link that points at a collection nobody created
+ * shows a 404 to shoppers, so the products added here stay invisible. Returns
+ * the missing handle, or '' when the link is fine or `collections` is unknown.
+ */
+const missingCollection = (href, collections) => {
+  if (!Array.isArray(collections)) return '';
+  const match = /^\/collections\/([^/?#]+)/.exec(String(href || ''));
+  if (!match) return '';
+  const handle = decodeURIComponent(match[1]);
+  return collections.includes(handle) ? '' : handle;
+};
+
+const missingCollectionNote = (item, collections) => {
+  const handle = missingCollection(item.href, collections);
+  if (!handle) return '';
+  return html`<span class="text-danger">
+    &middot; <strong>that collection does not exist</strong>, so this link 404s and nothing you add here shows on the site.
+    Clear the Link override to use <code>/category/${item.slug}</code>, or type a collection handle that exists.
+  </span>`;
+};
+
+const categoryRow = (item, index, count, collections) => html`
   <div class="card border-0 shadow-sm rounded-3 mb-3">
     <form method="post" action="/admin/categories/save">
       <input type="hidden" name="id" value="${item.id}">
@@ -161,6 +183,7 @@ const categoryRow = (item, index, count) => html`
         Links to <code>${item.href}</code> &middot;
         ${item.filterType === 'all' ? 'all products' : html`${FILTER_LABEL[item.filterType]}: <code>${item.filterValue}</code>`}
         &middot; <a href="/admin/categories/products?slug=${item.slug}">Manage the products in this category</a>
+        ${missingCollectionNote(item, collections)}
       </span>
       <div class="d-flex align-items-center gap-2">
         <form method="post" action="/admin/categories/move" class="mb-0">
@@ -184,7 +207,15 @@ const categoryRow = (item, index, count) => html`
     </div>
   </div>`;
 
-export const categoriesView = ({ list = [] }) => html`
+export const categoriesView = ({ list = [], collections } = {}) => html`
+  ${list.some((item) => missingCollection(item.href, collections))
+    ? html`<div class="alert alert-warning rounded-3" role="alert">
+        <strong>Some header links point at a collection that does not exist yet.</strong>
+        Those links land on a 404, so the products you add to that category cannot show up on the site. Either clear the
+        Link override (the category then uses its own <code>/category/&lt;slug&gt;</code> page) or point it at a collection
+        that is already in the shop.
+      </div>`
+    : ''}
   <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div>
       <h1 class="heading-font text-uppercase h4 mb-1">Product categories</h1>
@@ -227,7 +258,7 @@ export const categoriesView = ({ list = [] }) => html`
   </section>
 
   ${list.length
-    ? list.map((item, index) => categoryRow(item, index, list.length))
+    ? list.map((item, index) => categoryRow(item, index, list.length, collections))
     : html`<div class="card border-0 shadow-sm rounded-3">
         <div class="card-body text-center py-5">
           <h2 class="h5 mb-2">No categories yet</h2>
@@ -274,7 +305,11 @@ const productFields = (item, prefix) => html`
 `;
 
 /** One product in the list: a summary, the editor for its fields and its actions. */
-const productEditor = (item, { category, canLink, symbol }) => html`
+const productEditor = (item, { category, canLink, symbol, owners }) => {
+  // A product lives in one category, so flag any it is listed in besides this one.
+  const alsoIn = ((owners && owners.get(item.id)) || []).filter((owner) => owner.id !== category.id);
+
+  return html`
   <article class="card border-0 shadow-sm rounded-3 mb-3">
     <div class="card-header bg-white d-flex flex-wrap align-items-center gap-3">
       <img src="${item.image}" alt="" width="48" height="48" class="rounded object-fit-contain bg-body-secondary">
@@ -286,6 +321,9 @@ const productEditor = (item, { category, canLink, symbol }) => html`
         </p>
       </div>
       <div class="d-flex flex-wrap align-items-center gap-2">
+        ${alsoIn.length
+          ? html`<span class="badge text-bg-warning text-dark border">Also in ${alsoIn.map((owner) => owner.name).join(', ')}</span>`
+          : ''}
         ${item.soldOut ? html`<span class="badge text-bg-dark">Sold out</span>` : ''}
         ${item.badge ? html`<span class="badge text-bg-light text-dark border">${item.badge}</span>` : ''}
         ${item.inGrid ? '' : html`<span class="badge text-bg-light text-secondary border">Not on the homepage</span>`}
@@ -320,23 +358,39 @@ const productEditor = (item, { category, canLink, symbol }) => html`
       </div>
     </div>
   </article>`;
+};
 
 /**
  * `/admin/categories/products` - the products one category lists, with the
  * forms that add, edit, unlink and delete them. Collection and tag categories
  * get the add/remove controls; an "all products" category only gets the editors.
  */
-export const categoryProductsView = ({ category, list = [], picker = [], symbol = '£', limit = 200 }) => {
+export const categoryProductsView = ({
+  category,
+  list = [],
+  picker = [],
+  owners,
+  collections,
+  symbol = '£',
+  limit = 200,
+}) => {
   const listed = new Set(list.map((item) => item.id));
-  const candidates = picker.filter((item) => !listed.has(item.id));
+  const ownerOf = (item) => ((owners && owners.get(item.id)) || []).find((owner) => owner.id !== category.id) || null;
+  // A product lives in one category at a time, so anything another category
+  // holds is offered as a locked (disabled) entry that names its category.
+  const candidates = picker.filter((item) => !listed.has(item.id) && !ownerOf(item));
+  const held = picker.filter((item) => !listed.has(item.id) && ownerOf(item));
   const canLink = category.filterType !== 'all' && Boolean(category.filterValue);
+  const missing = missingCollection(category.href, collections);
   const note =
     category.filterType === 'collection'
-      ? html`Lists <strong>every product in the collection</strong> <code>${category.filterValue}</code>. Adding writes a
-          <code>product_collections</code> row, removing takes it away again - the product stays in the shop either way.`
+      ? html`Lists <strong>every product in the collection</strong> <code>${category.filterValue}</code>. Adding links the
+          product to that collection and sets its <strong>Tag handle / Tag label</strong> to this category; removing takes
+          both away again - the product itself stays in the shop either way.`
       : category.filterType === 'tag'
         ? html`Lists <strong>every product tagged</strong> <code>${category.filterValue}</code>. Adding sets the product's
-            tag handle and label, removing clears them again - the product stays in the shop either way.`
+            <strong>Tag handle / Tag label</strong> to this category, which is what puts it here; removing clears them
+            again - the product itself stays in the shop either way.`
         : html`Lists <strong>every product</strong>, so there is nothing to add or remove - a brand new product shows up
             here straight away.`;
 
@@ -344,10 +398,23 @@ export const categoryProductsView = ({ category, list = [], picker = [], symbol 
     <p class="fs-8 mb-2">
       <a class="text-secondary" href="/admin/categories">Product categories</a> / ${category.name}
     </p>
+    ${missing
+      ? html`<div class="alert alert-warning rounded-3" role="alert">
+          <strong>This category links to <code>/collections/${missing}</code>, and no collection uses that handle.</strong>
+          Shoppers who follow the header link get a 404, so the products below only show up on the category's own page.
+          Clear the Link override to link at <code>/category/${category.slug}</code> instead, or point it at a collection
+          that exists.
+        </div>`
+      : ''}
     <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
       <div>
         <h1 class="heading-font text-uppercase h4 mb-1">Products in ${category.name}</h1>
         <p class="text-secondary fs-7 mb-0">${note}</p>
+        <p class="text-secondary fs-8 mb-0">
+          A product belongs to one category at a time - its Tag handle and Tag label point at it - so a product that
+          another category already holds is locked in the picker below. <code>Remove from this category</code> sets it
+          free again.
+        </p>
       </div>
       <div class="d-flex flex-wrap align-items-center gap-2">
         <a class="btn btn-outline-dark btn-sm rounded px-3" href="${category.href}" target="_blank" rel="noopener">Preview</a>
@@ -368,9 +435,20 @@ export const categoryProductsView = ({ category, list = [], picker = [], symbol 
                     <select class="form-select form-select-sm" id="add-product" name="product_id" required>
                       <option value="">Pick a product&hellip;</option>
                       ${candidates.map((item) => html`<option value="${item.id}">${item.title}</option>`)}
+                      ${held.length
+                        ? html`<optgroup label="Already in another category">
+                            ${held.map(
+                              (item) => html`<option value="${item.id}" disabled>${item.title} - ${ownerOf(item).name}</option>`
+                            )}
+                          </optgroup>`
+                        : ''}
                     </select>
                     <p class="fs-8 text-secondary mb-0 mt-1">
                       ${candidates.length} product${candidates.length === 1 ? '' : 's'} outside this category.
+                      ${held.length
+                        ? html`${held.length} product${held.length === 1 ? '' : 's'} sit in another category already -
+                            take ${held.length === 1 ? 'it' : 'them'} out of that one first.`
+                        : ''}
                     </p>
                   </div>
                   <div class="col-12 col-sm-4">
@@ -403,11 +481,11 @@ export const categoryProductsView = ({ category, list = [], picker = [], symbol 
     </div>
 
     ${list.length
-      ? list.map((item) => productEditor(item, { category, canLink, symbol }))
+      ? list.map((item) => productEditor(item, { category, canLink, symbol, owners }))
       : html`<div class="card border-0 shadow-sm rounded-3">
           <div class="card-body text-center py-5">
             <h2 class="h5 mb-2">No products in this category yet</h2>
-            <p class="text-secondary fs-7 mb-0">Add one above and it shows up in the header link straight away.</p>
+            <p class="text-secondary fs-7 mb-0">Add one above and it appears on the storefront straight away.</p>
           </div>
         </div>`}
   `;

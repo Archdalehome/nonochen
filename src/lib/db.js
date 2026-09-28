@@ -129,6 +129,12 @@ export const collection = async (db, handle) => {
   return all.find((row) => row.handle === handle) || null;
 };
 
+/** The real collection handles - the admin warns about link overrides that miss. */
+export const collectionHandles = async (db) => {
+  const { results } = await db.prepare('SELECT handle FROM collections ORDER BY handle').all();
+  return (results || []).map((row) => row.handle);
+};
+
 /* ------------------------------------------------------------ categories ---- */
 
 const CATEGORY_COLUMNS = 'id, slug, name, url, filter_type, filter_value, position, enabled';
@@ -507,40 +513,84 @@ export const deleteProduct = async (db, id) => {
   return true;
 };
 
+/** The storefront lists a `tag` category when either of the product fields matches. */
+const tagMatches = (product, item) => {
+  const value = String((item && item.filterValue) || '').toLowerCase();
+  return (
+    String(product.cat_handle || '').toLowerCase() === value || String(product.cat_label || '').toLowerCase() === value
+  );
+};
+
 /**
- * Puts an existing product in the category the admin is looking at:
+ * The one category each product belongs to, keyed by product id, taken from the
+ * product's own category fields (`cat_handle` / `cat_label`) against the filter
+ * value of every tag and collection category - the same match the storefront
+ * uses. A product has a single set of fields, so it can belong to a single
+ * category; `all` categories list everything and never own anything. Collection
+ * links in `product_collections` are curated lists, not ownership, so a product
+ * can still appear in several collections.
+ */
+export const productCategoryIndex = async (db) => {
+  const [rows, list] = await Promise.all([
+    db.prepare('SELECT id, cat_handle, cat_label FROM products').all(),
+    allCategories(db),
+  ]);
+  const owners = list.filter((item) => item.filterType !== 'all' && item.filterValue);
+
+  const index = new Map();
+  for (const product of rows.results || []) {
+    const owned = owners.filter((item) => tagMatches(product, item));
+    if (owned.length) index.set(product.id, owned);
+  }
+  return index;
+};
+
+/**
+ * Puts a product that has no category yet into the one the admin is looking at:
  *
- *   collection -> a `product_collections` row (and the product's own pointer)
- *   tag        -> the product's `cat_handle` / `cat_label` become the filter
- *   all        -> nothing to do, every product is listed already
+ *   the product's own category fields (tag handle and label) become this
+ *   category, so the storefront and the admin show it in the same place;
+ *   a collection category also gets a `product_collections` row;
+ *   `all` categories list every product already, so there is nothing to add.
+ *
+ * A product belongs to one category at a time: adding it to a second one is
+ * refused and the caller is told which category holds it. Returns
+ * `{ ok, reason, owner }` with `reason` either `filter` or `taken`.
  */
 export const addProductToCategory = async (db, item, productId) => {
   const id = Number(productId) || 0;
-  if (!id || !item || item.filterType === 'all' || !item.filterValue) return false;
+  if (!id || !item || item.filterType === 'all' || !item.filterValue) return { ok: false, reason: 'filter' };
+  const owners = (await productCategoryIndex(db)).get(id) || [];
+  const other = owners.find((owner) => owner.id !== item.id);
+  if (other) return { ok: false, reason: 'taken', owner: other };
+
+  const statements = [];
   if (item.filterType === 'collection') {
-    await db.batch([
+    statements.push(
       db
         .prepare('INSERT OR IGNORE INTO product_collections (product_id, collection_handle, sort_order) VALUES (?1, ?2, 0)')
         .bind(id, item.filterValue),
       // Only fills a gap: a product that already points at a collection keeps it.
       db
         .prepare("UPDATE products SET collection_handle = ?2 WHERE id = ?1 AND (collection_handle IS NULL OR collection_handle = '')")
-        .bind(id, item.filterValue),
-    ]);
-  } else {
-    await db
+        .bind(id, item.filterValue)
+    );
+  }
+  statements.push(
+    db
       .prepare('UPDATE products SET cat_handle = ?2, cat_label = ?3 WHERE id = ?1')
       .bind(id, item.filterValue, item.name)
-      .run();
-  }
+  );
+  await db.batch(statements);
   invalidateProducts();
-  return true;
+  return { ok: true, owner: null };
 };
 
 /**
- * Takes a product out of the category without touching the product itself: the
- * collection link goes, or the tag that put it there is cleared. Returns
- * `false` when the product was not in this category in the first place.
+ * Takes a product out of the category without touching the rest of the product:
+ * the collection link goes and the category fields that point at this category
+ * are cleared, so the product is free to join another category. Returns `false`
+ * when the product was not in this category in the first place.
  */
 export const removeProductFromCategory = async (db, item, productId) => {
   const id = Number(productId) || 0;
@@ -548,22 +598,35 @@ export const removeProductFromCategory = async (db, item, productId) => {
   const product = await productById(db, id);
   if (!product) return false;
 
+  const statements = [];
   if (item.filterType === 'collection') {
-    await db.batch([
+    const link = await db
+      .prepare('SELECT 1 AS linked FROM product_collections WHERE product_id = ?1 AND collection_handle = ?2')
+      .bind(id, item.filterValue)
+      .first();
+    if (!link) return false;
+    statements.push(
       db
         .prepare('DELETE FROM product_collections WHERE product_id = ?1 AND collection_handle = ?2')
         .bind(id, item.filterValue),
       db
         .prepare("UPDATE products SET collection_handle = '' WHERE id = ?1 AND collection_handle = ?2")
-        .bind(id, item.filterValue),
-    ]);
-  } else {
-    if (String(product.cat_handle || '').toLowerCase() !== String(item.filterValue).toLowerCase()) return false;
-    await db.prepare("UPDATE products SET cat_handle = '', cat_label = '' WHERE id = ?").bind(id).run();
+        .bind(id, item.filterValue)
+    );
+  } else if (!tagMatches(product, item)) {
+    return false;
   }
+  statements.push(
+    db
+      .prepare("UPDATE products SET cat_handle = '', cat_label = '' WHERE id = ?1 AND (LOWER(cat_handle) = ?2 OR LOWER(cat_label) = ?2)")
+      .bind(id, String(item.filterValue).toLowerCase())
+  );
+  await db.batch(statements);
   invalidateProducts();
   return true;
 };
+
+
 
 /* ------------------------------------------------------------------- misc ---- */
 

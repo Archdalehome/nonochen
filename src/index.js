@@ -8,6 +8,7 @@ import {
   categoryBySlug,
   categorySlugTaken,
   collection,
+  collectionHandles,
   collections,
   createCategory,
   createProduct,
@@ -17,6 +18,7 @@ import {
   moveCategory,
   productByHandle,
   productById,
+  productCategoryIndex,
   productHandleTaken,
   productList,
   productPicker,
@@ -363,6 +365,14 @@ const PRODUCT_NOTICES = {
     kind: 'danger',
     message: 'This category lists every product, so there is nothing to add or remove.',
   },
+  'product-not-held': {
+    kind: 'danger',
+    message: 'That product is not in this category - reload the screen, the list may have moved on.',
+  },
+  'product-taken': {
+    kind: 'danger',
+    message: 'That product already sits in another category. A product lives in one category at a time - take it out of the other one first.',
+  },
 };
 
 const adminNotice = (url, notices = ADMIN_NOTICES) => {
@@ -428,12 +438,12 @@ const adminLogout = () => {
 };
 
 const adminCategoriesPage = async (request, env, user) => {
-  const list = await allCategories(env.DB);
+  const [list, handles] = await Promise.all([allCategories(env.DB), collectionHandles(env.DB)]);
   return adminResponse({
     env,
     user,
     title: 'Product categories',
-    body: categoriesView({ list }),
+    body: categoriesView({ list, collections: handles }),
     flash: adminNotice(new URL(request.url)),
   });
 };
@@ -493,9 +503,11 @@ const adminCategoryProductsPage = async (request, env, user) => {
     });
   }
 
-  const [list, picker] = await Promise.all([
+  const [list, picker, owners, handles] = await Promise.all([
     productsByCategory(env.DB, category, ADMIN_PRODUCT_LIMIT),
     productPicker(env.DB),
+    productCategoryIndex(env.DB),
+    collectionHandles(env.DB),
   ]);
   return adminResponse({
     env,
@@ -505,6 +517,8 @@ const adminCategoryProductsPage = async (request, env, user) => {
       category,
       list,
       picker,
+      owners,
+      collections: handles,
       symbol: currencySymbol(env),
       limit: ADMIN_PRODUCT_LIMIT,
     }),
@@ -558,7 +572,8 @@ const adminProductAdd = async (request, env) => {
   if (!id || !(await productById(env.DB, id))) return redirect(productScreen(category.slug, 'error=product-pick'));
 
   const added = await addProductToCategory(env.DB, category, id);
-  return redirect(productScreen(category.slug, added ? 'flash=product-added' : 'error=product-filter'));
+  if (added.ok) return redirect(productScreen(category.slug, 'flash=product-added'));
+  return redirect(productScreen(category.slug, added.reason === 'taken' ? 'error=product-taken' : 'error=product-filter'));
 };
 
 /** Takes a product out of the category, leaving the product in the shop. */
@@ -569,7 +584,7 @@ const adminProductRemove = async (request, env) => {
   if (!id || !(await productById(env.DB, id))) return redirect(productScreen(category.slug, 'error=product-missing'));
 
   const removed = await removeProductFromCategory(env.DB, category, id);
-  return redirect(productScreen(category.slug, removed ? 'flash=product-removed' : 'error=product-filter'));
+  return redirect(productScreen(category.slug, removed ? 'flash=product-removed' : 'error=product-not-held'));
 };
 
 /** Deletes the product itself: shop, collections and carts. */
