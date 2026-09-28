@@ -39,6 +39,9 @@ npm run check                # syntax-check every module, render views against t
 
 `npm run smoke` takes an optional base URL, so the same script verifies the
 deployed Worker: `npm run smoke -- https://chen-furniture.<subdomain>.workers.dev`.
+Right after a deploy the edge can still answer with the previous release, so pass
+`SMOKE_HEADER_ATTEMPTS` to retry the header-placement check (the deploy workflow
+uses 12 retries of 5s; every other check stays single-shot).
 `_scratch/` holds the scraped reference dumps the views were authored from and is
 git-ignored.
 
@@ -108,7 +111,9 @@ can also be started by hand from the Actions tab (or `gh workflow run deploy.yml
    `robots.txt`, the CSS/JS assets and `/images/*` all have to answer, the cart
    round trip has to work against the real D1, the product categories have to
    render in the header row and in the mobile menu and one of their links has to
-   answer, and the admin area has to sign in with `SMOKE_ADMIN_USER` /
+   answer (that check retries for up to a minute, because the edge can serve the
+   release that was live a moment earlier), and the admin area has to sign in
+   with `SMOKE_ADMIN_USER` /
    `SMOKE_ADMIN_PASSWORD`,
    add a hidden `smoke-<timestamp>` category, reject a duplicate slug and a bad
    slug, edit it, move it, delete it again and sign out - all against the live

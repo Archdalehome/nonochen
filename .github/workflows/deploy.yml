@@ -94,6 +94,11 @@ jobs:
 
       - name: Smoke test the deployment
         if: steps.deploy.outputs.url != ''
+        # `wrangler deploy` returns before every edge serves the new release, so
+        # the header-placement check retries (up to ~60s) instead of failing on
+        # the markup the previous release left behind.
+        env:
+          SMOKE_HEADER_ATTEMPTS: '12'
         run: node scripts/smoke.mjs "${{ steps.deploy.outputs.url }}"
 
       - name: Did the push touch images/?

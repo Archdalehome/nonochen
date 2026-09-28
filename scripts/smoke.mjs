@@ -82,19 +82,43 @@ if (collection) await check(`/collections/${collection}`);
 
 // The product categories have to sit in the header row (with the logo, the
 // search and the cart) and in the mobile menu, and one of them must answer.
-const home = await check('/');
-const rowStart = home.body.indexOf('top-navbar');
-const rowEnd = home.body.indexOf('</nav>', rowStart);
-const categoryAt = home.body.indexOf('header-categories__link', rowStart);
-if (rowStart < 0 || rowEnd < 0 || categoryAt < 0 || categoryAt > rowEnd) {
+// `wrangler deploy` returns before every edge serves the new release, so the
+// deploy workflow asks for retries (SMOKE_HEADER_ATTEMPTS) rather than reading
+// the previous markup as a regression. Locally this is a single request.
+const headerAttempts = Math.max(1, Number.parseInt(process.env.SMOKE_HEADER_ATTEMPTS || '1', 10) || 1);
+const headerDelayMs = Math.max(0, Number.parseInt(process.env.SMOKE_HEADER_DELAY_MS || '5000', 10) || 0);
+const placement = (body) => {
+  const rowStart = body.indexOf('top-navbar');
+  const rowEnd = body.indexOf('</nav>', rowStart);
+  const categoryAt = body.indexOf('header-categories__link', rowStart);
+  return {
+    inRow: rowStart >= 0 && rowEnd >= 0 && categoryAt >= 0 && categoryAt <= rowEnd,
+    inMenu: body.includes('mobile-nav__category-link'),
+  };
+};
+
+let homeBody = (await check('/')).body;
+let placed = placement(homeBody);
+for (let attempt = 1; attempt < headerAttempts && !(placed.inRow && placed.inMenu); attempt++) {
+  await new Promise((resolve) => setTimeout(resolve, headerDelayMs));
+  // Silent on purpose: the retry only keeps the log readable when the release
+  // was still rolling out.
+  const retry = await call('/').catch(() => ({ body: '' }));
+  if (retry.body) homeBody = retry.body;
+  placed = placement(homeBody);
+  if (placed.inRow && placed.inMenu) {
+    console.log(`     note: the categories showed up on retry ${attempt} - the release was still rolling out`);
+  }
+}
+if (!placed.inRow) {
   failures++;
   console.log('FAIL the product categories are not rendered in the header row');
 }
-if (!home.body.includes('mobile-nav__category-link')) {
+if (!placed.inMenu) {
   failures++;
   console.log('FAIL the product categories are missing from the mobile menu');
 }
-const categoryLink = (home.body.match(/<a[^>]+href="([^"]+)"[^>]+class="[^"]*header-categories__link/) || [])[1];
+const categoryLink = (homeBody.match(/<a[^>]+href="([^"]+)"[^>]+class="[^"]*header-categories__link/) || [])[1];
 if (categoryLink) await check(categoryLink);
 else console.log('     note: no categories in the header yet');
 
