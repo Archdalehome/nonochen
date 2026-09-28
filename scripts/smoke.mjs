@@ -106,17 +106,36 @@ const placement = (body) => {
 };
 const placedOk = (result) => result.inRow && result.inMenu && result.menuClean;
 
+// The homepage keeps the order the shop asked for: the hero, then the three
+// product blocks - "New Products", "Discover Products & Ranges", "All Products"
+// - then the banner blocks. The order is a row of `position` values in D1, so
+// these markers read the database the deployed Worker serves from (see
+// migrations/0009_home_block_order.sql). They join the retry loop below because
+// a release that is still rolling out serves the previous markup.
+const blockMarkers = [
+  'id="hero-',
+  '<h2 class="heading-font text-uppercase fw-normal fs-2 mb-2">New Products</h2>',
+  '<h2 class="heading-font text-uppercase fw-normal fs-2 mb-2">Discover Products &amp; Ranges</h2>',
+  '<h2 class="heading-font text-uppercase fw-normal fs-2 mb-2">All Products</h2>',
+];
+const blockOrder = (body) => blockMarkers.map((marker) => body.indexOf(marker));
+const orderOk = (positions) =>
+  positions.every((position) => position >= 0) &&
+  positions.every((position, index) => index === 0 || position > positions[index - 1]);
+
 let homeBody = (await check('/')).body;
 let placed = placement(homeBody);
-for (let attempt = 1; attempt < headerAttempts && !placedOk(placed); attempt++) {
+let blockAt = blockOrder(homeBody);
+for (let attempt = 1; attempt < headerAttempts && !(placedOk(placed) && orderOk(blockAt)); attempt++) {
   await new Promise((resolve) => setTimeout(resolve, headerDelayMs));
   // Silent on purpose: the retry only keeps the log readable when the release
   // was still rolling out.
   const retry = await call('/').catch(() => ({ body: '' }));
   if (retry.body) homeBody = retry.body;
   placed = placement(homeBody);
-  if (placedOk(placed)) {
-    console.log(`     note: the categories showed up on retry ${attempt} - the release was still rolling out`);
+  blockAt = blockOrder(homeBody);
+  if (placedOk(placed) && orderOk(blockAt)) {
+    console.log(`     note: the header and the homepage blocks showed up on retry ${attempt} - the release was still rolling out`);
   }
 }
 if (!placed.inRow) {
@@ -130,6 +149,14 @@ if (!placed.inMenu) {
 if (!placed.menuClean) {
   failures++;
   console.log('FAIL the mobile menu still renders the scraped menu items');
+}
+const missingBlocks = blockMarkers.filter((marker, index) => blockAt[index] < 0);
+if (missingBlocks.length) {
+  failures++;
+  console.log(`FAIL the homepage is missing one of its top blocks: ${missingBlocks.join(' / ')}`);
+} else if (!orderOk(blockAt)) {
+  failures++;
+  console.log(`FAIL the homepage blocks are out of order (${blockAt.join(', ')})`);
 }
 const categoryLinks = [
   ...new Set(

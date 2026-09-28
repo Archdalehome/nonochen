@@ -228,6 +228,11 @@ export const menu = {
 
 
 export const sections = [
+  /* The homepage blocks, in the order the storefront shows them: the hero, then
+     the three product blocks the shop asked for - "New Products", "Discover
+     Products & Ranges", "All Products" - then the banner blocks. The order lives
+     in `position`; `migrations/0009_home_block_order.sql` moves the same rows in
+     a database that is already seeded, so keep the two in step. */
   {
     page: 'home',
     type: 'hero',
@@ -253,45 +258,8 @@ export const sections = [
   {
     page: 'home',
     type: 'product_row',
-    name: 'All Products',
-    position: 2,
-    data: {
-      heading: 'All Products',
-      subheading: '',
-      source: 'grid',
-      pickers: [],
-      view_all: { label: 'VIEW ALL', url: '/collections/outdoor-range' },
-    },
-  },
-  {
-    page: 'home',
-    type: 'link_grid',
-    name: 'Shop Outdoor / Shop Indoor',
-    position: 3,
-    data: {
-      items: [
-        { label: 'Shop Outdoor', image: '/images/banner-shop-outdoor.jpg', url: '/collections/outdoor-range', height: '60vh' },
-        { label: 'Shop Indoor', image: '/images/banner-shop-indoor.jpg', url: '/collections/indoor-range', height: '60vh' },
-      ],
-    },
-  },
-  {
-    page: 'home',
-    type: 'image_banner',
-    name: 'Are you sitting comfortably?',
-    position: 4,
-    data: {
-      image: '/images/banner-facts.jpg',
-      object_position: '88.1869% 85.9167%',
-      title: 'Are you sitting comfortably?',
-      text: 'We source all of our materials for our luxury bean bags from as close to home as possible. Not only that, we strive to make everything we do as environmentally friendly as we can. And we do all of this in the cause of creating an uber-comfortable place for you to plonk your posterior.',
-    },
-  },
-  {
-    page: 'home',
-    type: 'product_row',
     name: 'New Products',
-    position: 5,
+    position: 2,
     data: {
       heading: 'New Products',
       subheading: '',
@@ -305,21 +273,33 @@ export const sections = [
   },
   {
     page: 'home',
+    type: 'link_grid',
+    name: 'Shop Outdoor / Shop Indoor',
+    position: 5,
+    data: {
+      items: [
+        { label: 'Shop Outdoor', image: '/images/banner-shop-outdoor.jpg', url: '/collections/outdoor-range', height: '60vh' },
+        { label: 'Shop Indoor', image: '/images/banner-shop-indoor.jpg', url: '/collections/indoor-range', height: '60vh' },
+      ],
+    },
+  },
+  {
+    page: 'home',
     type: 'image_banner',
-    name: 'Keep Cosy Anywhere',
+    name: 'Are you sitting comfortably?',
     position: 6,
     data: {
-      image: '/images/banner-b-blanket.png',
-      title: 'Keep Cosy Anywhere',
-      text: '',
-      button: { label: 'EXPLORE B-BLANKET', url: '/collections/b-blanket', style: 'btn-white', color: '#18181B' },
+      image: '/images/banner-facts.jpg',
+      object_position: '88.1869% 85.9167%',
+      title: 'Are you sitting comfortably?',
+      text: 'We source all of our materials for our luxury bean bags from as close to home as possible. Not only that, we strive to make everything we do as environmentally friendly as we can. And we do all of this in the cause of creating an uber-comfortable place for you to plonk your posterior.',
     },
   },
   {
     page: 'home',
     type: 'masonry',
     name: 'Discover Products & Ranges',
-    position: 7,
+    position: 3,
     data: {
       heading: 'Discover Products & Ranges',
       intro: 'Some of our other products & ranges perfect for your furniture collection',
@@ -330,6 +310,31 @@ export const sections = [
         { label: 'Lighting', image: '/images/modular-lighting.png', url: '/collections/lighting-all-styles', span: 'g-col-12 g-col-md-6 row-span-md-2', align: 'align-items-center' },
         { label: 'B-Dogbed', image: '/images/modular-dogbed.png', url: '/collections/pets-range', span: 'g-col-12 g-col-md-6', align: 'align-items-start' },
       ],
+    },
+  },
+  {
+    page: 'home',
+    type: 'image_banner',
+    name: 'Keep Cosy Anywhere',
+    position: 7,
+    data: {
+      image: '/images/banner-b-blanket.png',
+      title: 'Keep Cosy Anywhere',
+      text: '',
+      button: { label: 'EXPLORE B-BLANKET', url: '/collections/b-blanket', style: 'btn-white', color: '#18181B' },
+    },
+  },
+  {
+    page: 'home',
+    type: 'product_row',
+    name: 'All Products',
+    position: 4,
+    data: {
+      heading: 'All Products',
+      subheading: '',
+      source: 'grid',
+      pickers: [],
+      view_all: { label: 'VIEW ALL', url: '/collections/outdoor-range' },
     },
   },
   /* Content pages. They live in `sections` too, keyed by page = 'page:<handle>'. */

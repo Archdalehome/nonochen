@@ -355,6 +355,30 @@ lives in Cloudflare and can be changed without a deploy:
 | worker name, vars, bindings | `wrangler.jsonc` (a change there needs a `git push` to take effect) |
 | deploy history, logs, secrets | GitHub -> *Actions*, and dashboard -> *Workers & Pages -> chen-furniture -> Deployments / Logs / Settings* |
 
+### The homepage blocks
+
+The homepage is the `sections` rows with `page = 'home'`, rendered in `position`
+order. The seeded order is the one the shop asked for:
+
+| # | block | the `sections` row |
+| --- | --- | --- |
+| 1 | the hero carousel | `type = 'hero'`, *Homepage carousel* |
+| 2 | **New Products** | `type = 'product_row'`, *New Products* |
+| 3 | **Discover Products & Ranges** | `type = 'masonry'`, *Discover Products & Ranges* |
+| 4 | **All Products** | `type = 'product_row'`, *All Products* |
+| 5 | Shop Outdoor / Shop Indoor | `type = 'link_grid'` |
+| 6 | *Are you sitting comfortably?* | `type = 'image_banner'` |
+| 7 | *Keep Cosy Anywhere* | `type = 'image_banner'` |
+
+Blocks 2-4 are the three product blocks and they sit directly under the hero.
+Every block keeps its own markup, copy and images - moving one means changing its
+`position` alone - and `migrations/0009_home_block_order.sql` is what put them in
+this order in the databases that were already seeded. `scripts/data/content.mjs`
+carries the same positions, so `0002_seed.sql` and a fresh database match, and
+`npm run smoke` fails the release if a database still serves the old order.
+Changing what a block contains (the products in the two rows, the tiles in the
+masonry) is still a D1 edit on its `data` column.
+
 ## Layout
 
 ```

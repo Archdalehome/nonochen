@@ -49,7 +49,7 @@ if (parseable.length === files.length) {
 }
 
 // 3. the seed data must line up with the schema (ids, handles, colours)
-const [{ products, collections, settings }, { productCard }, { render }] = await Promise.all([
+const [{ products, collections, settings, sections: seedSections }, { productCard }, { render }] = await Promise.all([
   import(new URL('scripts/data/content.mjs', root).href),
   import(new URL('src/views/partials.js', root).href),
   import(new URL('src/lib/html.js', root).href),
@@ -77,6 +77,21 @@ for (const collection of collections) {
 
 for (const setting of settings) {
   if (!setting.key) failures.push('content: setting without a key');
+}
+
+// The homepage reads its blocks from `sections` ordered by `position`: the hero,
+// then the three product blocks the shop asked for, then the banner blocks.
+// `migrations/0009_home_block_order.sql` moves the same rows in a database that
+// is already seeded, so the two have to keep the same names.
+const homeBlocks = seedSections
+  .filter((section) => section.page === 'home' && section.enabled !== 0)
+  .sort((a, b) => (a.position || 0) - (b.position || 0))
+  .map((section) => section.name);
+const wantedBlocks = ['Homepage carousel', 'New Products', 'Discover Products & Ranges', 'All Products'];
+for (const [index, name] of wantedBlocks.entries()) {
+  if (homeBlocks[index] !== name) {
+    failures.push(`content: homepage block ${index + 1} should be ${name}, not ${homeBlocks[index] || '(none)'}`);
+  }
 }
 
 // 4. the header categories and the admin screens must render
