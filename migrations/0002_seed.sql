@@ -43,7 +43,6 @@ INSERT INTO settings (key, value, label, group_name) VALUES
   ('footer_company_heading', 'Company', NULL, 'footer');
 INSERT INTO settings (key, value, label, group_name) VALUES
   ('footer_help_heading', 'Help', NULL, 'footer'),
-  ('footer_location_heading', 'Location', NULL, 'footer'),
   ('footer_copyright', '© 2026 Chen Furniture | All Rights Reserved', NULL, 'footer'),
   ('footer_credit', '', NULL, 'footer'),
   ('footer_credit_url', '', NULL, 'footer'),
@@ -479,15 +478,18 @@ INSERT INTO menu_items (location, parent_id, kind, column_no, group_label, label
   ('header', NULL, 'link', 1, NULL, 'Accessories', '/collections/accessories', NULL, NULL, 5),
   ('mobile', NULL, 'link', 1, NULL, 'Accessories', '/collections/accessories', NULL, NULL, 5),
   ('footer', NULL, 'group_heading', 1, NULL, 'Company', '', NULL, NULL, 1),
-  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Company' AND kind = 'group_heading'), 'link', 1, 'Company', 'Shop', '/', NULL, NULL, 1),
-  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Company' AND kind = 'group_heading'), 'link', 1, 'Company', 'Email Us', 'mailto:customerservice@chenfurniture.com', NULL, NULL, 2),
-  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Company' AND kind = 'group_heading'), 'link', 1, 'Company', 'Contact Details', '/pages/contact-details', NULL, NULL, 3),
-  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Company' AND kind = 'group_heading'), 'link', 1, 'Company', 'Store Locator', '/pages/store-locator', NULL, NULL, 4),
-  ('footer', NULL, 'group_heading', 1, NULL, 'Help', '', NULL, NULL, 2),
+  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Company' AND kind = 'group_heading'), 'link', 1, 'Company', 'About', '/pages/about', NULL, NULL, 1),
+  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Company' AND kind = 'group_heading'), 'link', 1, 'Company', 'Contact', '/pages/contact-details', NULL, NULL, 2),
+  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Company' AND kind = 'group_heading'), 'link', 1, 'Company', 'FAQ', '/pages/faq', NULL, NULL, 3),
+  ('footer', NULL, 'group_heading', 1, NULL, 'Follow', '', NULL, NULL, 2),
+  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Follow' AND kind = 'group_heading'), 'link', 1, 'Follow', 'Instagram', 'https://www.instagram.com/', NULL, NULL, 1),
+  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Follow' AND kind = 'group_heading'), 'link', 1, 'Follow', 'Facebook', 'https://www.facebook.com/', NULL, NULL, 2),
+  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Follow' AND kind = 'group_heading'), 'link', 1, 'Follow', 'TikTok', 'https://www.tiktok.com/', NULL, NULL, 3),
+  ('footer', NULL, 'group_heading', 1, NULL, 'Help', '', NULL, NULL, 3);
+INSERT INTO menu_items (location, parent_id, kind, column_no, group_label, label, url, image, badge, sort_order) VALUES
   ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Help' AND kind = 'group_heading'), 'link', 1, 'Help', 'Terms & Conditions', '/pages/terms-and-conditions', NULL, NULL, 1),
   ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Help' AND kind = 'group_heading'), 'link', 1, 'Help', 'Privacy Policy', '/pages/privacy', NULL, NULL, 2),
-  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Help' AND kind = 'group_heading'), 'link', 1, 'Help', 'Delivery Details', '/pages/delivery', NULL, NULL, 3);
-INSERT INTO menu_items (location, parent_id, kind, column_no, group_label, label, url, image, badge, sort_order) VALUES
+  ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Help' AND kind = 'group_heading'), 'link', 1, 'Help', 'Delivery Details', '/pages/delivery', NULL, NULL, 3),
   ('footer', (SELECT id FROM menu_items WHERE location = 'footer' AND label = 'Help' AND kind = 'group_heading'), 'link', 1, 'Help', 'Returns', '/pages/returns', NULL, NULL, 4);
 
 INSERT INTO sections (page, type, name, position, enabled, data) VALUES
@@ -506,6 +508,8 @@ INSERT INTO sections (page, type, name, position, enabled, data) VALUES
   ('page:terms-and-conditions', 'page', 'Terms & Conditions', 1, 1, '{"title":"Terms & Conditions","body":"<p>By placing an order with Chen Furniture you agree to these terms. All prices are shown in GBP and include VAT where applicable.</p><p>Products remain the property of Chen Furniture until full payment has been received. Nothing in these terms affects your statutory rights.</p>"}'),
   ('page:contact-details', 'page', 'Contact Details', 1, 1, '{"title":"Contact Details","body":"<p>Customer Service: <a href=\"mailto:customerservice@chenfurniture.com\">customerservice@chenfurniture.com</a></p><p>We aim to reply within one working day, Monday to Friday.</p>"}');
 INSERT INTO sections (page, type, name, position, enabled, data) VALUES
-  ('page:store-locator', 'page', 'Store Locator', 1, 1, '{"title":"Store Locator","body":"<p>Prefer to try before you buy? Our bean bags are stocked by a growing list of independent retailers across the UK and Ireland.</p><p>Email customerservice@chenfurniture.com and we will point you to your nearest stockist.</p>"}');
+  ('page:store-locator', 'page', 'Store Locator', 1, 1, '{"title":"Store Locator","body":"<p>Prefer to try before you buy? Our bean bags are stocked by a growing list of independent retailers across the UK and Ireland.</p><p>Email customerservice@chenfurniture.com and we will point you to your nearest stockist.</p>"}'),
+  ('page:about', 'page', 'About', 1, 1, '{"title":"About Chen Furniture","body":"<p>Chen Furniture makes bean bags, chairs and loungers for indoors and outdoors. The range is built around one idea: generous, sink-into-it comfort that suits the living room as well as the garden.</p><p>The fabrics are water resistant and UV resistant, so a shower of rain or a season in the sun is not a problem - every product page lists the features it was made with.</p><p>Questions about a product, an order or a return? Email <a href=\"mailto:customerservice@chenfurniture.com\">customerservice@chenfurniture.com</a> and we will reply within one working day, Monday to Friday.</p>"}'),
+  ('page:faq', 'page', 'FAQ', 1, 1, '{"title":"FAQ","body":"<p><strong>How long does delivery take?</strong><br>Orders are delivered within 3-5 working days, and free Mainland UK shipping is included. See <a href=\"/pages/delivery\">Delivery Details</a>.</p><p><strong>Can I return an order?</strong><br>Yes - you can cancel within 14 days of receiving the products. See <a href=\"/pages/returns\">Returns</a>.</p><p><strong>Where can I see the products in person?</strong><br>Our bean bags are stocked by independent retailers across the UK and Ireland - see <a href=\"/pages/store-locator\">Store Locator</a>.</p><p><strong>How do I get in touch?</strong><br>Email <a href=\"mailto:customerservice@chenfurniture.com\">customerservice@chenfurniture.com</a> or see <a href=\"/pages/contact-details\">Contact Details</a>.</p>"}');
 
 PRAGMA foreign_keys = ON;

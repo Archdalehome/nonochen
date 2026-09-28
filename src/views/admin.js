@@ -757,9 +757,11 @@ const footerLinkRow = (link, index, count) => html`
 /**
  * `/admin/footer`: the link columns at the bottom of every page. The columns are
  * rows in `menu_items` (location = 'footer'), so nothing here decides how they
- * are laid out - the screen only changes the words, the links and the order.
+ * are laid out - the screen only changes the words, the links and the order. The
+ * currency picker that closes the row is a setting, not one of these columns, and
+ * it carries no heading.
  */
-export const footerView = ({ groups = [], settings = {} } = {}) => html`
+export const footerView = ({ groups = [] } = {}) => html`
   <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div>
       <h1 class="heading-font text-uppercase h4 mb-1">Footer</h1>
@@ -777,25 +779,12 @@ export const footerView = ({ groups = [], settings = {} } = {}) => html`
 
   <section class="card border-0 shadow-sm rounded-3 mb-4">
     <div class="card-body row g-3 align-items-end">
-      <div class="col-12 col-md-8">
-        <h2 class="h6 text-uppercase mb-1">Location heading</h2>
+      <div class="col-12">
+        <h2 class="h6 text-uppercase mb-1">Columns</h2>
         <p class="text-secondary fs-7 mb-0">
-          The heading over the currency picker, the last thing in the row of columns.
+          One card per column, in the order the footer shows them. The currency picker closes the row and is left alone.
         </p>
       </div>
-      <form method="post" action="/admin/footer/location" class="col-12 col-md-4 m-0 row g-2 align-items-end">
-        ${textField({
-          id: 'location-heading',
-          name: 'heading',
-          label: 'Heading',
-          value: settings.footer_location_heading || 'Location',
-          col: 'col-8',
-          attrs: 'maxlength="40" required',
-        })}
-        <div class="col-4 d-flex justify-content-end">
-          <button class="btn btn-primary btn-sm rounded px-3" type="submit">Save</button>
-        </div>
-      </form>
     </div>
   </section>
 

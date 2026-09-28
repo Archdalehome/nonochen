@@ -454,7 +454,6 @@ const FOOTER_NOTICES = {
     message: 'Footer links have to start with "/" (for example /pages/about), be a full https:// URL or a mailto: address.',
   },
   'link-missing': { kind: 'danger', message: 'That footer link could not be found.' },
-  'location-saved': { kind: 'success', message: 'Location heading saved.' },
 };
 
 const adminNotice = (url, notices = ADMIN_NOTICES) => {
@@ -652,12 +651,12 @@ const adminHeroSave = async (request, env) => {
 const footerRedirect = (query = '') => redirect(`/admin/footer${query ? `?${query}` : ''}`);
 
 const adminFooterPage = async (request, env, user) => {
-  const [groups, siteSettings] = await Promise.all([footerMenu(env.DB), loadSettings(env.DB)]);
+  const groups = await footerMenu(env.DB);
   return adminResponse({
     env,
     user,
     title: 'Footer',
-    body: footerView({ groups, settings: siteSettings }),
+    body: footerView({ groups }),
     flash: adminNotice(new URL(request.url), FOOTER_NOTICES),
   });
 };
@@ -721,14 +720,6 @@ const adminFooterLinkMove = async (request, env) => {
   const data = await readForm(request);
   const moved = await moveFooterLink(env.DB, Number(data.id) || 0, String(data.direction || ''));
   return footerRedirect(moved ? 'flash=link-moved' : 'error=link-missing');
-};
-
-/** The heading over the currency picker - a setting, not a column. */
-const adminFooterLocationSave = async (request, env) => {
-  const { error, values } = normalizeFooterGroup(await readForm(request));
-  if (error) return footerRedirect('error=group-heading');
-  await saveSettings(env.DB, { footer_location_heading: values.label });
-  return footerRedirect('flash=location-saved');
 };
 
 /**
@@ -884,7 +875,6 @@ const adminRoute = async (request, env, path, method) => {
   if (path === '/admin/footer/link/save') return isPost ? adminFooterLinkSave(request, env) : methodNotAllowed();
   if (path === '/admin/footer/link/delete') return isPost ? adminFooterLinkDelete(request, env) : methodNotAllowed();
   if (path === '/admin/footer/link/move') return isPost ? adminFooterLinkMove(request, env) : methodNotAllowed();
-  if (path === '/admin/footer/location') return isPost ? adminFooterLocationSave(request, env) : methodNotAllowed();
   if (path === '/admin/categories/products') {
     return isGet ? adminCategoryProductsPage(request, env, user) : methodNotAllowed();
   }

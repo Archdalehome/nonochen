@@ -508,9 +508,9 @@ const footerGroups = [
   ]),
   footerColumn(3, 'Help', 3, [[31, 'Returns', '/pages/returns', 1]]),
 ];
-const footerSettings = { footer_copyright: '© 2026 Chen Furniture', footer_location_heading: 'Location' };
+const footerSettings = { footer_copyright: '© 2026 Chen Furniture' };
 
-const footerAdmin = render(footerView({ groups: footerGroups, settings: footerSettings }));
+const footerAdmin = render(footerView({ groups: footerGroups }));
 for (const expected of [
   'Footer',
   'action="/admin/footer/group"',
@@ -521,14 +521,16 @@ for (const expected of [
   'action="/admin/footer/link/save"',
   'action="/admin/footer/link/move"',
   'action="/admin/footer/link/delete"',
-  'action="/admin/footer/location"',
   'value="Company"',
   'value="Follow"',
   'value="/pages/about"',
   'value="https://www.instagram.com/"',
-  'value="Location"',
 ]) {
   if (!footerAdmin.includes(expected)) failures.push(`views: the footer admin screen is missing ${expected}`);
+}
+// The Location heading - and the form that used to edit it - is gone.
+if (footerAdmin.includes('Location heading') || footerAdmin.includes('action="/admin/footer/location"')) {
+  failures.push('views: the footer admin screen still offers the Location heading');
 }
 
 // The storefront renders those very columns, keeps the currency picker next to
@@ -544,6 +546,11 @@ for (const expected of [
   'col-6 col-lg-3',
 ]) {
   if (!footerMarkup.includes(expected)) failures.push(`views: the storefront footer is missing ${expected}`);
+}
+// The heading that used to sit over the currency picker is not rendered any
+// more (the picker still closes the row, as the expectation above shows).
+if (footerMarkup.includes('<h5 class="lh-sm fw-medium mb-4">Location')) {
+  failures.push('views: the storefront footer still renders the Location heading');
 }
 // Two columns and the picker read as three equal thirds, as they always did.
 const twoColumns = render(storefrontFooter(footerSettings, footerGroups.slice(0, 2)));

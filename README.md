@@ -295,9 +295,8 @@ the storefront already renders, so nothing about the layout changes:
   a path (`/pages/about`), a full `https://` URL or a `mailto:` address - a link
   that goes nowhere is refused. `https://` links (the socials) open in a new tab,
   paths stay on the site;
-* the **Location heading** over the currency picker is a setting
-  (`footer_location_heading`), so it is edited here as well. An empty one falls
-  back to `Location`.
+* the **currency picker** closes the row. It is a setting (`country_options`), not
+  a column, so it is not edited here and it has no heading.
 
 The columns are rows in `menu_items` (`location = 'footer'`, one `group_heading`
 per column and one `link` per item under it, which is what the seed writes too)
@@ -309,15 +308,16 @@ Two things worth knowing:
 
 * the width of a column follows how many of them there are, so the row keeps its
   shape - two columns read as thirds next to the picker, as they always did, and
-  four (Company, Follow, Help, Location) read as halves on a tablet and quarters
-  on a desktop;
+  four (Company, Follow, Help and the picker) read as halves on a tablet and
+  quarters on a desktop;
 * the seeded columns are **Company** (About, Contact, FAQ), **Follow**
-  (Instagram, Facebook, TikTok), **Help** (Terms, Privacy, Delivery, Returns) and
-  the currency picker. `migrations/0006_footer.sql` is what puts them there, and
-  it also creates the `page:about` and `page:faq` pages those two Company links
-  need - ordinary content pages, with copy that sticks to what the site already
-  publishes. Point a link somewhere else from this screen and the pages are
-  simply unused.
+  (Instagram, Facebook, TikTok) and **Help** (Terms, Privacy, Delivery, Returns).
+  `migrations/0006_footer.sql` is what puts them there, and it also creates the
+  `page:about` and `page:faq` pages those two Company links need - ordinary
+  content pages, with copy that sticks to what the site already publishes. Point
+  a link somewhere else from this screen and the pages are simply unused.
+  `migrations/0007_drop_footer_location_heading.sql` takes the old `Location`
+  heading setting back out of a database that still has it.
 
 The social handles in the seeded Follow column point at the platforms' own
 homepages; replace them with your profile URLs.

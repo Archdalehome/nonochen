@@ -44,7 +44,6 @@ export const settings = [
   { key: 'newsletter_note', value: 'Unsubscribe anytime  |  By joining, you agree to our Privacy Policy', group: 'newsletter' },
   { key: 'footer_company_heading', value: 'Company', group: 'footer' },
   { key: 'footer_help_heading', value: 'Help', group: 'footer' },
-  { key: 'footer_location_heading', value: 'Location', group: 'footer' },
   { key: 'footer_copyright', value: '© 2026 Chen Furniture | All Rights Reserved', group: 'footer' },
   // Empty values hide those bits of the footer, so nothing is published until you
   // have your own handle for them.

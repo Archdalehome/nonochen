@@ -27,8 +27,9 @@ const columnClass = (columns) =>
   columns >= 4 ? 'col-6 col-lg-3' : columns === 3 ? 'col-4' : columns === 2 ? 'col-6' : 'col-12';
 
 export const footer = (settings, groups = [], symbol = '£') => {
-  // The currency picker is a column of its own, hence the + 1: it decides how
-  // wide the link columns may be drawn.
+  // The currency picker closes the row and is a column of its own - it carries
+  // no heading - hence the + 1: it decides how wide the link columns may be
+  // drawn.
   const width = columnClass(groups.length + 1);
   return html`
   <footer class="pt-3 pt-md-0 bg-footer mt-auto">
@@ -66,7 +67,6 @@ export const footer = (settings, groups = [], symbol = '£') => {
                 </div>`
             )}
             <div class="${width}">
-              <h5 class="lh-sm fw-medium mb-4">${settings.footer_location_heading || 'Location'}</h5>
               <form method="post" action="/localization" class="localize__form" data-localize>
                 <label for="currency-selector" class="visually-hidden">Currency Selector</label>
                 <select name="country_code" class="border border-secondary bg-white rounded px-2 py-1 w-100" id="currency-selector" data-country-selector>
