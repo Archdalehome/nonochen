@@ -16,8 +16,11 @@
   --cf-secondary: #e4e4e7;
   --cf-surface: #f5f5f5;
   --cf-footer-bg: #fafafb;
-  --cf-muted: rgba(24, 24, 27, .75);
-  --cf-muted-soft: rgba(24, 24, 27, .5);
+  /* Muted copy. Both are dark enough to stay legible on the white and pale grey
+     surfaces the views paint them on; `--cf-muted-soft` is the lighter of the
+     two and is only for hints (placeholders, "was" prices, disabled labels). */
+  --cf-muted: rgba(24, 24, 27, .82);
+  --cf-muted-soft: rgba(24, 24, 27, .68);
 
   /* Families: Typekit first, sensible fallbacks after it. */
   --bs-body-font-family: myriad-pro, "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -44,15 +47,17 @@
   --bs-danger: #b5363d;
   --bs-danger-rgb: 181, 54, 61;
 
-  /* Emphasis / muted text. */
+  /* Emphasis / muted text. Bootstrap reads these for placeholder text, disabled
+     controls and `.text-body-secondary` / `.text-body-tertiary`; the defaults are
+     too pale to read on white, so they match the brand greys above. */
   --bs-emphasis-color: #18181b;
   --bs-emphasis-color-rgb: 24, 24, 27;
   --bs-heading-color: #18181b;
-  --bs-secondary-color: rgba(24, 24, 27, .75);
+  --bs-secondary-color: rgba(24, 24, 27, .82);
   --bs-secondary-color-rgb: 24, 24, 27;
   --bs-secondary-bg: #f8fafd;
   --bs-secondary-bg-rgb: 248, 250, 253;
-  --bs-tertiary-color: rgba(24, 24, 27, .5);
+  --bs-tertiary-color: rgba(24, 24, 27, .68);
   --bs-tertiary-color-rgb: 24, 24, 27;
   --bs-tertiary-bg: #f9fafc;
   --bs-secondary-bg-subtle: #f7f8f9;
@@ -79,6 +84,25 @@
   --bs-carousel-indicator-active-bg: #18181b;
   --bs-form-valid-color: #198754;
   --bs-form-invalid-color: #b5363d;
+}
+
+/* -------------------------------------------------------------- muted text -- */
+
+/* Bootstrap's muted text utilities name the *theme* colours rather than the text
+   ones: `.text-secondary` paints `--bs-secondary` (#e4e4e7 - a surface grey that
+   all but vanishes on white), `.text-muted` is the deprecated alias of it, and
+   `.text-body-tertiary` is the palest of the three. The views use "secondary" for
+   every muted line they render - summaries, prices, breadcrumbs, admin hints - so
+   point the utilities at the brand greys instead. `!important` because that is how
+   Bootstrap ships them. */
+.text-secondary,
+.text-body-secondary,
+.text-muted {
+  color: var(--cf-muted) !important;
+}
+
+.text-body-tertiary {
+  color: var(--cf-muted-soft) !important;
 }
 
 /* -------------------------------------------------------------- typography -- */
@@ -186,6 +210,24 @@ a:hover { color: var(--bs-link-hover-color); }
   --bs-btn-active-border-color: #0b0b0d;
   --bs-btn-disabled-color: #18181b;
   --bs-btn-disabled-border-color: #18181b;
+  --bs-btn-focus-shadow-rgb: 24, 24, 27;
+}
+
+/* Bootstrap ships this outline grey at 50% (#6c757d) and then fades a disabled
+   button to 65% on top of that: the admin's arrow buttons, first and last in a
+   list, were barely legible. Use the brand greys and keep disabled buttons solid. */
+.btn-outline-secondary {
+  --bs-btn-color: rgba(24, 24, 27, .82);
+  --bs-btn-border-color: rgba(24, 24, 27, .45);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #18181b;
+  --bs-btn-hover-border-color: #18181b;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #0b0b0d;
+  --bs-btn-active-border-color: #0b0b0d;
+  --bs-btn-disabled-color: rgba(24, 24, 27, .55);
+  --bs-btn-disabled-border-color: rgba(24, 24, 27, .25);
+  --bs-btn-disabled-opacity: 1;
   --bs-btn-focus-shadow-rgb: 24, 24, 27;
 }
 
@@ -455,7 +497,9 @@ a:hover { color: var(--bs-link-hover-color); }
   border-color: var(--cf-black) !important;
   box-shadow: inset 0 0 0 1px var(--cf-black);
 }
-.variant-option.is-disabled { opacity: .45; cursor: not-allowed; }
+/* A sold-out option is still a label the shopper has to read, so it stays legible
+   (Bootstrap's own disabled form controls only fade to about 65%). */
+.variant-option.is-disabled { opacity: .68; cursor: not-allowed; }
 .variant-option .form-check-input { flex-shrink: 0; }
 
 /* --------------------------------------------------------------------- qty -- */
@@ -658,7 +702,12 @@ a:hover { color: var(--bs-link-hover-color); }
 
 /* ---------------------------------------------------------------- breadcrumbs -- */
 
-.breadcrumb { --bs-breadcrumb-divider-color: rgba(24, 24, 27, .4); --bs-breadcrumb-item-active-color: var(--cf-black); }
+/* The "/" separators were too faint to read; the crumbs themselves carry
+   `.text-secondary`, which the muted-text block above points at the brand grey. */
+.breadcrumb {
+  --bs-breadcrumb-divider-color: rgba(24, 24, 27, .55);
+  --bs-breadcrumb-item-active-color: var(--cf-black);
+}
 .breadcrumb-item + .breadcrumb-item::before { content: "/"; }
 .breadcrumb a:hover { color: var(--cf-black); text-decoration: underline; }
 
@@ -695,7 +744,10 @@ a:hover { color: var(--bs-link-hover-color); }
 /* --------------------------------------------------------------- checkout -- */
 
 .checkout-page .form-control { border-radius: .375rem; }
-.checkout-page .btn[disabled] { opacity: .5; }
+/* "Place order" is disabled until the cart has something in it, and the label is
+   still text the shopper has to read: Bootstrap's own disabled buttons fade to
+   65%, so keep that fade instead of the 50% this page used to apply. */
+.checkout-page .btn[disabled] { opacity: .65; }
 
 /* ------------------------------------------------------- rich text (rte) -- */
 
@@ -727,13 +779,19 @@ body > footer small { font-size: .75rem; }
 /* ---------------------------------------------------------------- feedback -- */
 
 #site-toasts { z-index: 1080; }
-.text-decoration-line-through { color: var(--cf-muted-soft); }
+/* The struck "was" price is the one place the lighter hint grey is the point,
+   so it keeps it. `!important` because `.text-secondary`, sitting next to it in
+   the markup, now forces the darker grey with the same weight. */
+.text-decoration-line-through { color: var(--cf-muted-soft) !important; }
 
 /* ------------------------------------------------------------------- admin -- */
 
 /* The /admin screens share the brand typography but none of the storefront chrome. */
 .admin-header { letter-spacing: .02em; }
 .admin-header a:hover { text-decoration: underline; text-underline-offset: .2em; }
+/* "Signed in as ..." is the only light text on the black bar: half-transparent
+   white read as grey, so keep it nearly opaque. */
+.admin-header .text-white-50 { color: rgba(255, 255, 255, .85) !important; }
 .admin code { color: var(--cf-black); background-color: var(--cf-surface); padding: .1rem .35rem; }
 .admin .form-label { color: var(--cf-black); }
 .admin .alert { border: 0; }
