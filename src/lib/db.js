@@ -306,6 +306,19 @@ export const saveSectionData = async (db, id, data) => {
   return Boolean(result.meta && result.meta.changes);
 };
 
+/**
+ * Shows or hides one homepage block without touching its payload, so a block
+ * switched off here comes back exactly as it was.
+ */
+export const saveSectionEnabled = async (db, id, enabled) => {
+  const result = await db
+    .prepare('UPDATE sections SET enabled = ? WHERE id = ?')
+    .bind(enabled ? 1 : 0, Number(id))
+    .run();
+  invalidate('sections');
+  return Boolean(result.meta && result.meta.changes);
+};
+
 /* ------------------------------------------------------------ collections ---- */
 
 export const collections = (db) =>
@@ -526,9 +539,20 @@ export const productByHandle = (db, handle) =>
     };
   });
 
+/**
+ * The homepage product rows read one product switch each - the same three
+ * toggles the admin product form writes on a category screen. A row whose
+ * `source` is none of these lists the collections in its `pickers` instead.
+ */
+const LIST_FLAGS = {
+  new: 'p.is_new = 1',
+  best: 'p.price_from = 1',
+  grid: 'p.show_in_home_grid = 1',
+};
+
 export const productList = (db, options = {}) => {
-  const { collection: collectionHandle, handles, limit = 60, offset = 0, gridOnly = false, source } = options;
-  const key = `list:${collectionHandle || ''}:${source || ''}:${(handles || []).join(',')}:${limit}:${offset}:${gridOnly}`;
+  const { collection: collectionHandle, handles, limit = 60, offset = 0, flag = '', source } = options;
+  const key = `list:${collectionHandle || ''}:${source || ''}:${flag}:${(handles || []).join(',')}:${limit}:${offset}`;
   return memo(key, async () => {
     const where = [];
     const params = [];
@@ -540,7 +564,7 @@ export const productList = (db, options = {}) => {
       where.push(`p.handle IN (${handles.map(() => '?').join(', ')})`);
       params.push(...handles);
     }
-    if (gridOnly) where.push('p.show_in_home_grid = 1');
+    if (LIST_FLAGS[flag]) where.push(LIST_FLAGS[flag]);
     return selectProducts(db, { where: where.join(' AND '), params, limit, offset });
   });
 };

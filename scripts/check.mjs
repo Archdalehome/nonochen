@@ -80,14 +80,15 @@ for (const setting of settings) {
 }
 
 // The homepage reads its blocks from `sections` ordered by `position`: the hero,
-// then the three product blocks the shop asked for, then the banner blocks.
-// `migrations/0009_home_block_order.sql` moves the same rows in a database that
-// is already seeded, so the two have to keep the same names.
+// then the product blocks the shop asked for, then the banner blocks.
+// `migrations/0009_home_block_order.sql` and `0010_best_selling_row.sql` move the
+// same rows in a database that is already seeded, so the three have to keep the
+// same names.
 const homeBlocks = seedSections
   .filter((section) => section.page === 'home' && section.enabled !== 0)
   .sort((a, b) => (a.position || 0) - (b.position || 0))
   .map((section) => section.name);
-const wantedBlocks = ['Homepage carousel', 'New Products', 'Discover Products & Ranges', 'All Products'];
+const wantedBlocks = ['Homepage carousel', 'New Products', 'Best Selling', 'Discover Products & Ranges', 'All Products'];
 for (const [index, name] of wantedBlocks.entries()) {
   if (homeBlocks[index] !== name) {
     failures.push(`content: homepage block ${index + 1} should be ${name}, not ${homeBlocks[index] || '(none)'}`);
@@ -106,7 +107,10 @@ const [
     normalizeFooterGroup,
     normalizeFooterLink,
     normalizeHero,
+    normalizeImageBanner,
+    normalizeLinkGridItem,
     normalizeProduct,
+    normalizeProductRow,
   },
   { hero: storefrontHero },
   { footer: storefrontFooter },
@@ -477,6 +481,196 @@ if (!render(homeView({ settings: {}, hero: { ...heroSection, enabled: false } })
 if (render(homeView({ settings: {}, hero: heroSection })).includes('switched off')) {
   failures.push('views: an enabled hero should not be flagged as switched off');
 }
+
+// The product rows and the bottom blocks under the hero are on that same screen,
+// and each block posts one field set against its own section id, so a save can
+// never rewrite a neighbour. The rows read a product switch; the tiles and the
+// banners carry images, and the banner carries the button under its copy.
+const blockRow = {
+  id: 7,
+  type: 'product_row',
+  name: 'Best Selling',
+  position: 3,
+  enabled: true,
+  data: { heading: 'Best Selling', subheading: '', source: 'best', view_all: { label: 'VIEW ALL', url: '/products' } },
+};
+const blockTiles = {
+  id: 8,
+  type: 'link_grid',
+  name: 'Shop Outdoor / Shop Indoor',
+  position: 6,
+  enabled: true,
+  data: {
+    items: [
+      { label: 'Shop Outdoor', image: '/images/banner-shop-outdoor.jpg', url: '/collections/outdoor-range', height: '60vh' },
+      { label: 'Shop Indoor', image: '/images/banner-shop-indoor.jpg', url: '/collections/indoor-range', height: '60vh' },
+    ],
+  },
+};
+const blockBanner = {
+  id: 9,
+  type: 'image_banner',
+  name: 'Keep Cosy Anywhere',
+  position: 8,
+  enabled: false,
+  data: {
+    image: '/images/banner-b-blanket.png',
+    title: 'Keep Cosy Anywhere',
+    button: { label: 'EXPLORE B-BLANKET', url: '/collections/b-blanket', style: 'btn-white', color: '#18181B' },
+  },
+};
+const blocks = render(
+  homeView({ settings: {}, hero: heroSection, sections: [blockRow, blockTiles, blockBanner], media: true })
+);
+for (const expected of [
+  'action="/admin/home/product-row"',
+  'action="/admin/home/link-grid"',
+  'action="/admin/home/image-banner"',
+  'action="/admin/home/section"',
+  'name="section_id" value="7"',
+  'name="section_id" value="8"',
+  'name="section_id" value="9"',
+  'name="heading" value="Best Selling"',
+  'name="subheading" value=""',
+  'name="view_all_label" value="VIEW ALL"',
+  'name="view_all_url" value="/products"',
+  'name="item" value="1"',
+  'name="label" value="Shop Indoor"',
+  'name="height" value="60vh"',
+  'name="object_position"',
+  'name="button_label" value="EXPLORE B-BLANKET"',
+  'name="button_style"',
+  'Products join this row from their category screen',
+]) {
+  if (!blocks.includes(expected)) failures.push(`views: the home page screen is missing ${expected} in a block form`);
+}
+// Every block carries the switch that takes it off the homepage, and the switch
+// reads on for exactly the blocks the homepage is showing.
+const switchesOn = blocks.match(/type="checkbox" role="switch" name="enabled" value="1"[^>]*checked/g) || [];
+if (switchesOn.length !== 2) {
+  failures.push(`views: the block switches should read on for the two shown blocks and off for the hidden one (found ${switchesOn.length})`);
+}
+// A block that names collections says so instead, since those rows keep their
+// pickers - the screen does not edit them.
+const pickerRow = render(
+  homeView({
+    settings: {},
+    sections: [{ ...blockRow, id: 10, data: { heading: 'New Products', source: 'collection', pickers: [{ label: 'B-Mat', collection: 'b-mat' }] } }],
+  })
+);
+if (!pickerRow.includes('still lists the collections in its picker data')) {
+  failures.push('views: a collection row should say that its pickers are not edited here');
+}
+// Without a MEDIA bucket there is nothing to upload to, so no file picker.
+if (render(homeView({ settings: {}, sections: [blockTiles], media: false })).includes('type="file"')) {
+  failures.push('views: the tile form should not offer uploads without a MEDIA bucket');
+}
+
+// One tile keeps every field its form did not carry, and an empty height falls
+// back to the renderer's own default instead of to a stored one.
+const storedTiles = {
+  items: [
+    { label: 'Shop Outdoor', image: '/images/banner-shop-outdoor.jpg', url: '/collections/outdoor-range', height: '60vh' },
+    { label: 'Shop Indoor', image: '/images/banner-shop-indoor.jpg', url: '/collections/indoor-range', height: '60vh' },
+  ],
+};
+const savedTile = normalizeLinkGridItem(
+  { item: '1', label: '  Shop   Indoor ', url: '/collections/indoor-range', image: '/images/banner-shop-indoor.jpg', height: '  ' },
+  storedTiles
+);
+if (savedTile.error) failures.push(`admin: a valid tile was rejected (${savedTile.error})`);
+if (savedTile.values.items[1].label !== 'Shop Indoor') failures.push('admin: a tile label should lose its double spaces');
+if (savedTile.values.items[1].height) failures.push('admin: an empty tile height should fall back to the renderer default');
+if (savedTile.values.items[0].height !== '60vh') failures.push('admin: saving one tile should leave the other tiles alone');
+for (const [fields, expected] of [
+  [{ item: '9', label: 'Shop', url: '/x', image: '/images/a.jpg' }, 'item'],
+  [{ item: '0', label: '   ', url: '/x', image: '/images/a.jpg' }, 'label'],
+  [{ item: '0', label: 'Shop', url: 'pages/about', image: '/images/a.jpg' }, 'url'],
+  [{ item: '0', label: 'Shop', url: '/x', image: '' }, 'image'],
+  [{ item: '0', label: 'Shop', url: '/x', image: '/images/a.jpg', height: 'tall' }, 'height'],
+]) {
+  const outcome = normalizeLinkGridItem(fields, storedTiles);
+  if (outcome.error !== expected) {
+    failures.push(`admin: a tile should be rejected with ${expected}, got ${outcome.error || '(none)'}`);
+  }
+}
+
+// The banner keeps its copy while it has a heading, copy or a button, the button
+// needs both a label and a link, and an empty image position means centre.
+const storedBanner = {
+  image: '/images/banner-facts.jpg',
+  object_position: '88% 86%',
+  title: 'Old',
+  text: 'Old',
+  button: { label: 'OLD', url: '/old', style: 'btn-primary', color: '#000000' },
+};
+const savedBanner = normalizeImageBanner(
+  {
+    image: '/images/banner-b-blanket.png',
+    object_position: '   ',
+    title: ' Keep Cosy Anywhere ',
+    text: 'Wrapped up warm.',
+    button_label: 'EXPLORE B-BLANKET',
+    button_url: '/collections/b-blanket',
+    button_style: 'btn-white',
+    button_color: '#18181B',
+  },
+  storedBanner
+);
+if (savedBanner.error) failures.push(`admin: a valid banner was rejected (${savedBanner.error})`);
+if (savedBanner.values.title !== 'Keep Cosy Anywhere') failures.push('admin: a banner heading should lose its outer spaces');
+if (savedBanner.values.object_position) failures.push('admin: an empty image position should fall back to the centre');
+if (savedBanner.values.button.label !== 'EXPLORE B-BLANKET' || savedBanner.values.button.style !== 'btn-white') {
+  failures.push('admin: the banner button should keep the label and the style it was saved with');
+}
+for (const [fields, expected] of [
+  [{ image: '' }, 'image'],
+  [{ image: '/images/a.jpg', object_position: '88%; color: red' }, 'position'],
+  [{ image: '/images/a.jpg', button_label: 'GO' }, 'button'],
+  [{ image: '/images/a.jpg', button_label: 'GO', button_url: 'b-blanket' }, 'link'],
+  [{ image: '/images/a.jpg', button_label: 'GO', button_url: '/x', button_color: 'red' }, 'colour'],
+]) {
+  const outcome = normalizeImageBanner(fields, storedBanner);
+  if (outcome.error !== expected) {
+    failures.push(`admin: a banner should be rejected with ${expected}, got ${outcome.error || '(none)'}`);
+  }
+}
+// The banner the homepage closes on has no button at all, and it still saves:
+// posting its empty button fields back must not read as a broken link.
+if (normalizeImageBanner({ image: '/images/banner-facts.jpg', title: 'Are you sitting comfortably?', text: 'Copy' }, storedBanner).error) {
+  failures.push('admin: a banner without a button should still save');
+}
+if (normalizeImageBanner({ image: '/images/a.jpg', title: 'Hello', button_label: '   ' }, storedBanner).values.button) {
+  failures.push('admin: clearing the banner button label should drop the button');
+}
+
+
+// What a product row lists is one of the product switches, its wording is tidied
+// up, and its "view all" button only exists while it has words.
+const savedRow = normalizeProductRow(
+  { heading: '  New   Products ', subheading: '  Just   in ', source: 'new', view_all_label: ' VIEW ALL ', view_all_url: '/products' },
+  { heading: 'New Products', source: 'collection', pickers: [{ label: 'B-Mat', collection: 'b-mat' }] }
+);
+if (savedRow.error) failures.push(`admin: a valid product row was rejected (${savedRow.error})`);
+if (savedRow.values.heading !== 'New Products') failures.push('admin: a product row heading should lose its double spaces');
+if (savedRow.values.subheading !== 'Just in') failures.push('admin: a product row subheading should lose its double spaces');
+if (savedRow.values.source !== 'new') failures.push('admin: a product row should keep the switch it reads');
+if (!Array.isArray(savedRow.values.pickers)) failures.push('admin: saving a product row should leave the pickers it does not edit alone');
+if (savedRow.values.view_all.url !== '/products') failures.push('admin: a product row should keep the button link it was saved with');
+for (const [fields, expected] of [
+  [{ heading: '   ', source: 'new' }, 'heading'],
+  [{ heading: 'New Products', source: 'trending' }, 'source'],
+  [{ heading: 'New Products', source: 'grid', view_all_label: 'VIEW ALL', view_all_url: 'products' }, 'link'],
+]) {
+  const outcome = normalizeProductRow(fields);
+  if (outcome.error !== expected) {
+    failures.push(`admin: a product row should be rejected with ${expected}, got ${outcome.error || '(none)'}`);
+  }
+}
+if ('view_all' in normalizeProductRow({ heading: 'New Products', source: 'new', view_all_label: '   ' }).values) {
+  failures.push('admin: clearing the button label should drop the product row button');
+}
+
 
 const bar = normalizeAnnouncement({
   announcement_text: '  Free   Mainland UK Shipping  ',

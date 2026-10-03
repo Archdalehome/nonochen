@@ -34,11 +34,16 @@ export const colourSwatches = ({ colours = [], limit = 4, link = '' }) => {
 
 /* --------------------------------------------------------------- product card ---- */
 
+/**
+ * The price a card shows. `price_from` is the admin's "Best Selling" switch - it
+ * decides which homepage row a product belongs to (see `productList` in
+ * `lib/db.js`), not how its price reads - so a card always shows the plain
+ * figure, with no "from" in front of it.
+ */
 export const priceLabel = (product, symbol = '£') => {
   const sizes = product.sizes || [];
   const cheapest = sizes.length ? Math.min(...sizes.map((size) => Number(size.price))) : Number(product.price);
-  const from = product.priceFrom || cheapest < Number(product.price);
-  return html`${from ? html`<span class="from-label">from</span> ` : ''}<span class="js--product--price">${money(cheapest, symbol)}</span>`;
+  return html`<span class="js--product--price">${money(cheapest, symbol)}</span>`;
 };
 
 export const productCard = (product, { symbol = '£', columnClass = 'col-6 col-md-4 col-lg-3' } = {}) => html`

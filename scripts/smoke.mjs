@@ -108,22 +108,30 @@ const placement = (body) => {
 };
 const placedOk = (result) => result.inRow && result.inMenu && result.menuClean;
 
-// The homepage keeps the order the shop asked for: the hero, then the three
-// product blocks - "New Products", "Discover Products & Ranges", "All Products"
-// - then the banner blocks. The order is a row of `position` values in D1, so
-// these markers read the database the deployed Worker serves from (see
-// migrations/0009_home_block_order.sql). They join the retry loop below because
-// a release that is still rolling out serves the previous markup.
+// The homepage keeps the order the shop asked for: the hero, then the product
+// blocks - "New Products", "Best Selling", "Discover Products & Ranges", "All
+// Products" - then the banner blocks. The order is a row of `position` values in
+// D1, so these markers read the database the deployed Worker serves from (see
+// migrations/0009_home_block_order.sql and 0010_best_selling_row.sql). A product
+// row only reaches the page while the products ticked for it are there, and what
+// it lists is a switch the shop sets, so the two switch-driven rows at the top
+// are expected rather than required. They join the retry loop below because a
+// release that is still rolling out serves the previous markup.
+const rowHeading = (text) => `<h2 class="heading-font text-uppercase fw-normal fs-2 mb-2">${text}</h2>`;
 const blockMarkers = [
-  'id="hero-',
-  '<h2 class="heading-font text-uppercase fw-normal fs-2 mb-2">New Products</h2>',
-  '<h2 class="heading-font text-uppercase fw-normal fs-2 mb-2">Discover Products &amp; Ranges</h2>',
-  '<h2 class="heading-font text-uppercase fw-normal fs-2 mb-2">All Products</h2>',
+  { label: 'the hero', marker: 'id="hero-', required: true },
+  { label: '"New Products"', marker: rowHeading('New Products'), required: false },
+  { label: '"Best Selling"', marker: rowHeading('Best Selling'), required: false },
+  { label: '"Discover Products &amp; Ranges"', marker: rowHeading('Discover Products &amp; Ranges'), required: true },
+  { label: '"All Products"', marker: rowHeading('All Products'), required: true },
 ];
-const blockOrder = (body) => blockMarkers.map((marker) => body.indexOf(marker));
-const orderOk = (positions) =>
-  positions.every((position) => position >= 0) &&
-  positions.every((position, index) => index === 0 || position > positions[index - 1]);
+const blockOrder = (body) => blockMarkers.map(({ marker }) => body.indexOf(marker));
+// Only the blocks that made it onto the page have to be in order; a required one
+// that is missing is reported on its own below.
+const orderOk = (positions) => {
+  const shown = positions.filter((position) => position >= 0);
+  return shown.length > 0 && shown.every((position, index) => index === 0 || position > shown[index - 1]);
+};
 
 let homeBody = (await check('/')).body;
 let placed = placement(homeBody);
@@ -152,13 +160,23 @@ if (!placed.menuClean) {
   failures++;
   console.log('FAIL the mobile menu still renders the scraped menu items');
 }
-const missingBlocks = blockMarkers.filter((marker, index) => blockAt[index] < 0);
+const missingBlocks = blockMarkers
+  .filter((block, index) => block.required && blockAt[index] < 0)
+  .map((block) => block.label);
 if (missingBlocks.length) {
   failures++;
   console.log(`FAIL the homepage is missing one of its top blocks: ${missingBlocks.join(' / ')}`);
 } else if (!orderOk(blockAt)) {
   failures++;
   console.log(`FAIL the homepage blocks are out of order (${blockAt.join(', ')})`);
+}
+// A row whose products have not been ticked yet is simply not on the page, which
+// is worth a note - the shop fills those from the category screens.
+const emptyRows = blockMarkers
+  .filter((block, index) => !block.required && blockAt[index] < 0)
+  .map((block) => block.label);
+if (emptyRows.length) {
+  console.log(`     note: the homepage shows no ${emptyRows.join(' / ')} row - no products are ticked for it yet`);
 }
 // The categories as the header lists them - link -> name. The product detail
 // breadcrumb below has to name one of these, so the label matters as well.
@@ -291,7 +309,16 @@ await check('/admin/categories/products?slug=no-such-category', {
 // decoded again before they are posted back.
 const home = await check('/admin/home', {
   init: { headers: admin },
-  contains: ['Home page content', 'Announcement bar', 'action="/admin/home/announcement"', 'action="/admin/home/hero"'],
+  contains: [
+    'Home page content',
+    'Announcement bar',
+    'action="/admin/home/announcement"',
+    'action="/admin/home/hero"',
+    'action="/admin/home/product-row"',
+    'action="/admin/home/link-grid"',
+    'action="/admin/home/image-banner"',
+    'action="/admin/home/section"',
+  ],
 });
 const inputValue = (body, name) => {
   const found = new RegExp(`name="${name}"[^>]*value="([^"]*)"`).exec(body || '');
@@ -399,6 +426,75 @@ const formBlock = (body, marker) => {
   const end = source.indexOf('</form>', at);
   return source.slice(at, end < 0 ? at + 1200 : end);
 };
+
+/** The option a `<select>` of one form has selected - i.e. what the screen shows. */
+const selectedOption = (block, name) => {
+  const select = new RegExp(`<select[^>]*name="${name}"[^>]*>([\\s\\S]*?)</select>`).exec(block || '');
+  if (!select) return '';
+  const options = select[1].match(/<option[^>]*>/g) || [];
+  const chosen = options.find((tag) => /\sselected/.test(tag)) || options[0];
+  return chosen ? (chosen.match(/value="([^"]*)"/) || [])[1] || '' : '';
+};
+
+// The product rows, the link grid and the banners are edited on this same
+// screen. The row round trip posts back exactly what the screen showed - the same
+// words, the same switch, the same button - so nothing a shopper sees moves while
+// the path is proved, and the switch is posted in the state it is already in for
+// the same reason.
+const rowForm = formBlock(home.body, 'action="/admin/home/product-row"');
+const rowSectionId = inputValue(rowForm, 'section_id');
+if (rowSectionId) {
+  const rowFields = {
+    section_id: rowSectionId,
+    heading: inputValue(rowForm, 'heading'),
+    subheading: inputValue(rowForm, 'subheading'),
+    source: selectedOption(rowForm, 'source'),
+    view_all_label: inputValue(rowForm, 'view_all_label'),
+    view_all_url: inputValue(rowForm, 'view_all_url'),
+  };
+  console.log(`     note: the first product row lists "${rowFields.source}" with the heading "${rowFields.heading}"`);
+  await check('/admin/home/product-row', {
+    init: { method: 'POST', headers: adminForm, body: adminBody(rowFields) },
+    expect: 303,
+    headers: { location: '/admin/home?flash=row-saved' },
+  });
+  // The row is still where it was on the homepage.
+  const savedHeading = rowHeading(rowFields.heading);
+  if (rowFields.heading && homeBody.includes(savedHeading)) await check('/', { contains: [savedHeading] });
+  // A button with a link that goes nowhere is refused instead of stored.
+  await check('/admin/home/product-row', {
+    init: {
+      method: 'POST',
+      headers: adminForm,
+      body: adminBody({ ...rowFields, view_all_label: 'VIEW ALL', view_all_url: 'products' }),
+    },
+    expect: 303,
+    headers: { location: '/admin/home?error=row-link' },
+  });
+  // A row that has gone from the database bounces the save as well.
+  await check('/admin/home/product-row', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ ...rowFields, section_id: '0' }) },
+    expect: 303,
+    headers: { location: '/admin/home?error=section-missing' },
+  });
+} else {
+  console.log('     note: /admin/home lists no product rows - skipping the row round trip');
+}
+
+// The switch in a block header posts on its own. It goes back in the state it is
+// already in, so the homepage does not change while the path is proved.
+const toggleForm = formBlock(home.body, 'action="/admin/home/section"');
+const toggleSectionId = inputValue(toggleForm, 'section_id');
+if (toggleSectionId) {
+  const shown = /name="enabled"[^>]*checked/.test(toggleForm);
+  await check('/admin/home/section', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ section_id: toggleSectionId, enabled: shown ? '1' : '0' }) },
+    expect: 303,
+    headers: { location: `/admin/home?flash=${shown ? 'section-shown' : 'section-hidden'}` },
+  });
+} else {
+  console.log('     note: /admin/home lists no blocks to switch - skipping the block switch round trip');
+}
 
 const columnHeading = inputValue(footer.body, 'label');
 if (columnHeading) {
@@ -601,7 +697,8 @@ if (!productId) {
   });
   const unlinked = await check(productScreen, {
     init: { headers: admin },
-    contains: ['No products in this category yet'],
+    // The screen's own wording for a category with nothing left in it.
+    contains: ['No products to edit here'],
   });
   if (unlinked.body.includes(`id="p-${productId}-title"`)) {
     failures++;

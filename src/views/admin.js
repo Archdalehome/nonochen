@@ -1,5 +1,5 @@
 import { html, money, safe } from '../lib/html.js';
-import { CATEGORY_FILTERS } from '../lib/admin.js';
+import { BANNER_BUTTONS, CATEGORY_FILTERS, PRODUCT_ROW_SOURCES } from '../lib/admin.js';
 import { announcementBar } from './partials.js';
 
 /* ---------------------------------------------------------------- shell ---- */
@@ -301,7 +301,7 @@ const productFields = (item, prefix) => html`
   ${textAreaField({ id: `${prefix}-description`, name: 'description', label: 'Description', value: item.description || '', rows: 3, attrs: 'maxlength="2000"' })}
   <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-sold-out`, name: 'sold_out', label: 'Sold out', checked: Boolean(item.sold_out) })}</div>
   <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-new`, name: 'is_new', label: 'New', checked: Boolean(item.is_new) })}</div>
-  <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-from`, name: 'price_from', label: 'Show from', checked: Boolean(item.price_from) })}</div>
+  <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-from`, name: 'price_from', label: 'Best Selling', checked: Boolean(item.price_from) })}</div>
   <div class="col-6 col-lg-3 d-flex align-items-end">${toggleField({ id: `${prefix}-grid`, name: 'show_in_home_grid', label: 'Homepage row', checked: Boolean(item.show_in_home_grid) })}</div>
   ${textField({ id: `${prefix}-seo-title`, name: 'seo_title', label: 'SEO title', value: item.seo_title || '', col: 'col-12 col-lg-6', attrs: 'maxlength="120"' })}
   ${textField({ id: `${prefix}-seo-description`, name: 'seo_description', label: 'SEO description', value: item.seo_description || '', col: 'col-12 col-lg-6', attrs: 'maxlength="300"' })}
@@ -379,6 +379,13 @@ export const categoryProductsView = ({
 }) => {
   const listed = new Set(list.map((item) => item.id));
   const ownerOf = (item) => ((owners && owners.get(item.id)) || []).find((owner) => owner.id !== category.id) || null;
+  // A product lives in one category at a time, so this screen only edits the
+  // products this category holds: anything another category owns is hidden here
+  // (never deleted - it keeps its row and stays editable on its own screen). An
+  // "all products" category matches on nothing, so it holds everything and
+  // nothing is hidden there.
+  const hidden = category.filterType === 'all' ? [] : list.filter((item) => ownerOf(item));
+  const visible = hidden.length ? list.filter((item) => !hidden.includes(item)) : list;
   // A product lives in one category at a time, so anything another category
   // holds is offered as a locked (disabled) entry that names its category.
   const candidates = picker.filter((item) => !listed.has(item.id) && !ownerOf(item));
@@ -409,6 +416,13 @@ export const categoryProductsView = ({
           that exists.
         </div>`
       : ''}
+    ${hidden.length
+      ? html`<div class="alert alert-secondary rounded-3 fs-7" role="alert">
+          <strong>${hidden.length} product${hidden.length === 1 ? '' : 's'} this list used to show sit in another category</strong>
+          and are hidden here, so this screen only edits what ${category.name} holds. Nothing was deleted - open the
+          category a product names on its own screen to edit it there.
+        </div>`
+      : ''}
     <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
       <div>
         <h1 class="heading-font text-uppercase h4 mb-1">Products in ${category.name}</h1>
@@ -417,6 +431,10 @@ export const categoryProductsView = ({
           A product belongs to one category at a time - its Tag handle and Tag label point at it - so a product that
           another category already holds is locked in the picker below. <code>Remove from this category</code> sets it
           free again.
+        </p>
+        <p class="text-secondary fs-8 mb-0">
+          The <strong>New</strong>, <strong>Best Selling</strong> and <strong>Homepage row</strong> switches each put a
+          product in the homepage row of the same name.
         </p>
       </div>
       <div class="d-flex flex-wrap align-items-center gap-2">
@@ -477,18 +495,26 @@ export const categoryProductsView = ({
     </section>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
-      <h2 class="h6 text-uppercase mb-0">${list.length} product${list.length === 1 ? '' : 's'} listed</h2>
-      ${list.length >= limit
+      <h2 class="h6 text-uppercase mb-0">${visible.length} product${visible.length === 1 ? '' : 's'} listed</h2>
+      ${visible.length >= limit
         ? html`<span class="fs-8 text-secondary">Showing the first ${limit} - the storefront reads the same list.</span>`
+        : ''}
+      ${hidden.length
+        ? html`<span class="fs-8 text-secondary">${hidden.length} hidden - they sit in another category.</span>`
         : ''}
     </div>
 
-    ${list.length
-      ? list.map((item) => productEditor(item, { category, canLink, symbol, owners }))
+    ${visible.length
+      ? visible.map((item) => productEditor(item, { category, canLink, symbol, owners }))
       : html`<div class="card border-0 shadow-sm rounded-3">
           <div class="card-body text-center py-5">
-            <h2 class="h5 mb-2">No products in this category yet</h2>
-            <p class="text-secondary fs-7 mb-0">Add one above and it appears on the storefront straight away.</p>
+            <h2 class="h5 mb-2">No products to edit here</h2>
+            <p class="text-secondary fs-7 mb-0">
+              ${hidden.length
+                ? html`Every product this list used to show sits in another category, so the screen hides it. Add one
+                    above, or open the category a product names on its own screen.`
+                : html`Add one above and it appears on the storefront straight away.`}
+            </p>
           </div>
         </div>`}
   `;
@@ -599,6 +625,141 @@ const heroSlide = ({ slide, index, section, media }) => html`
       <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save hero</button>
     </div>
   </form>`;
+/**
+ * The switch that takes one homepage block off the site. It posts on its own, so
+ * hiding a block never rewrites its content - and its position in a card header
+ * keeps it out of the block's own `<form>` (forms cannot nest).
+ */
+const sectionToggle = ({ section }) => html`
+  <form method="post" action="/admin/home/section" class="mb-0 d-flex align-items-center gap-2">
+    <input type="hidden" name="section_id" value="${section.id}">
+    ${toggleField({ id: `section-${section.id}-enabled`, name: 'enabled', label: 'On the homepage', checked: section.enabled !== false })}
+    <button class="btn btn-outline-secondary btn-sm rounded px-3" type="submit">Save</button>
+  </form>`;
+
+/** One product row under the hero: its wording and which products it lists. */
+const productRowPanel = ({ section }) => {
+  const source = section.data.source || '';
+  const viewAll = section.data.view_all || {};
+  return html`
+    <div class="card border-0 shadow-sm rounded-3 mb-3">
+      <div class="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h3 class="h6 text-uppercase mb-0">${section.name}</h3>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <span class="fs-8 text-secondary">position ${section.position}</span>
+          ${sectionToggle({ section })}
+        </div>
+      </div>
+      <form method="post" action="/admin/home/product-row">
+        <input type="hidden" name="section_id" value="${section.id}">
+        <div class="card-body row g-3">
+          ${textField({ id: `row-${section.id}-heading`, name: 'heading', label: 'Heading', value: section.data.heading || '', col: 'col-12 col-lg-4', attrs: 'maxlength="80" required' })}
+          ${textField({ id: `row-${section.id}-subheading`, name: 'subheading', label: 'Line under the heading', value: section.data.subheading || '', col: 'col-12 col-lg-4', attrs: 'maxlength="200"' })}
+          <div class="col-12 col-lg-4">
+            <label class="form-label fs-8 text-uppercase mb-1" for="row-${section.id}-source">Lists</label>
+            <select class="form-select form-select-sm" id="row-${section.id}-source" name="source">
+              ${PRODUCT_ROW_SOURCES.map(
+                (item) => html`<option value="${item.value}" ${item.value === source ? safe('selected') : ''}>${item.label}</option>`
+              )}
+            </select>
+          </div>
+          ${textField({ id: `row-${section.id}-view-label`, name: 'view_all_label', label: 'Button label', value: viewAll.label || '', attrs: 'maxlength="40" placeholder="empty: no button"' })}
+          ${textField({ id: `row-${section.id}-view-url`, name: 'view_all_url', label: 'Button link', value: viewAll.url || '', col: 'col-6 col-lg-4', attrs: 'maxlength="300" placeholder="/collections/outdoor-range"' })}
+        </div>
+        <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span class="fs-8 text-secondary">
+            ${source === 'collection'
+              ? html`This row still lists the collections in its picker data. Choose one of the three product switches above to drive it from the products instead.`
+              : html`Products join this row from their category screen: tick <strong>New</strong>, <strong>Best Selling</strong> or <strong>Homepage row</strong>.`}
+          </span>
+          <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save row</button>
+        </div>
+      </form>
+    </div>`;
+};
+
+
+
+/** One tile of the link grid: the words over it, where it links and its image. */
+const linkGridPanel = ({ section, media }) => {
+  const items = Array.isArray(section.data.items) ? section.data.items : [];
+  return html`
+    <div class="card border-0 shadow-sm rounded-3 mb-3">
+      <div class="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h3 class="h6 text-uppercase mb-0">${section.name}</h3>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <span class="fs-8 text-secondary">${items.length} tile${items.length === 1 ? '' : 's'}, position ${section.position}</span>
+          ${sectionToggle({ section })}
+        </div>
+      </div>
+      <div class="card-body row g-3">
+        ${items.map(
+          (item, index) => html`
+            <form method="post" action="/admin/home/link-grid" enctype="multipart/form-data" class="col-12 col-lg-6">
+              <div class="border rounded-3 p-3 h-100">
+                <input type="hidden" name="section_id" value="${section.id}">
+                <input type="hidden" name="item" value="${index}">
+                <p class="form-label fs-8 text-uppercase mb-2">
+                  Tile ${index + 1}<span class="text-secondary text-lowercase"> &middot; ${item.image || 'no image'}</span>
+                </p>
+                <div class="row g-2">
+                  ${mediaField({ id: `grid-${section.id}-${index}-image`, name: 'image', label: 'Image', value: item.image || '', file: 'image_file', accept: 'image/jpeg,image/png,image/webp,image/avif', hint: '/images/banner-shop-outdoor.jpg', upload: media, col: 'col-12' })}
+                  ${textField({ id: `grid-${section.id}-${index}-label`, name: 'label', label: 'Label', value: item.label || '', col: 'col-12 col-sm-6', attrs: 'maxlength="60" required' })}
+                  ${textField({ id: `grid-${section.id}-${index}-url`, name: 'url', label: 'Link', value: item.url || '', col: 'col-12 col-sm-6', attrs: 'maxlength="300" required placeholder="/collections/outdoor-range"' })}
+                  ${textField({ id: `grid-${section.id}-${index}-height`, name: 'height', label: 'Height', value: item.height || '', col: 'col-6', attrs: 'maxlength="20" placeholder="empty: 60vh"' })}
+                  <div class="col-6 d-flex align-items-end justify-content-end">
+                    <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save tile</button>
+                  </div>
+                </div>
+              </div>
+            </form>`
+        )}
+      </div>
+    </div>`;
+};
+
+/** One image banner: its image, the copy over it and the button under it. */
+const imageBannerPanel = ({ section, media }) => {
+  const button = section.data.button || {};
+  return html`
+    <div class="card border-0 shadow-sm rounded-3 mb-3">
+      <div class="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h3 class="h6 text-uppercase mb-0">${section.name}</h3>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <span class="fs-8 text-secondary">position ${section.position}</span>
+          ${sectionToggle({ section })}
+        </div>
+      </div>
+      <form method="post" action="/admin/home/image-banner" enctype="multipart/form-data">
+        <input type="hidden" name="section_id" value="${section.id}">
+        <div class="card-body row g-3">
+          ${mediaField({ id: `banner-${section.id}-image`, name: 'image', label: 'Image', value: section.data.image || '', file: 'image_file', accept: 'image/jpeg,image/png,image/webp,image/avif', hint: '/images/banner-facts.jpg', upload: media })}
+          ${textField({ id: `banner-${section.id}-position`, name: 'object_position', label: 'Image position', value: section.data.object_position || '', col: 'col-12 col-lg-6', attrs: 'maxlength="60" placeholder="88% 86% - empty: centre"' })}
+          ${textField({ id: `banner-${section.id}-title`, name: 'title', label: 'Heading', value: section.data.title || '', col: 'col-12 col-lg-6', attrs: 'maxlength="120"' })}
+          ${textAreaField({ id: `banner-${section.id}-text`, name: 'text', label: 'Copy', value: section.data.text || '', rows: 3, col: 'col-12 col-lg-6', attrs: 'maxlength="600"' })}
+          ${textField({ id: `banner-${section.id}-button-label`, name: 'button_label', label: 'Button label', value: button.label || '', col: 'col-12 col-lg-3', attrs: 'maxlength="60" placeholder="empty: no button"' })}
+          ${textField({ id: `banner-${section.id}-button-url`, name: 'button_url', label: 'Button link', value: button.url || '', col: 'col-12 col-lg-3', attrs: 'maxlength="300" placeholder="/collections/b-blanket"' })}
+          <div class="col-12 col-lg-3">
+            <label class="form-label fs-8 text-uppercase mb-1" for="banner-${section.id}-button-style">Button style</label>
+            <select class="form-select form-select-sm" id="banner-${section.id}-button-style" name="button_style">
+              <option value="">Leave as it is</option>
+              ${BANNER_BUTTONS.map(
+                (name) => html`<option value="${name}" ${name === button.style ? safe('selected') : ''}>${name}</option>`
+              )}
+            </select>
+          </div>
+          ${textField({ id: `banner-${section.id}-button-color`, name: 'button_color', label: 'Button colour', value: button.color || '', col: 'col-12 col-lg-3', attrs: 'maxlength="20" placeholder="#18181B"' })}
+        </div>
+        <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span class="fs-8 text-secondary">
+            The copy block only appears while the banner has a heading, copy or a button, and the button keeps the flat
+            styling the storefront uses.
+          </span>
+          <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save banner</button>
+        </div>
+      </form>
+    </div>`;
+};
 
 /**
  * `/admin/home` - the announcement bar and the hero. Both are already on the
@@ -606,16 +767,20 @@ const heroSlide = ({ slide, index, section, media }) => html`
  * the hero video with its wording and links); this screen only changes what they
  * say and which files they use, so the homepage keeps its layout.
  */
-export const homeView = ({ settings = {}, hero = null, media = true } = {}) => {
+export const homeView = ({ settings = {}, hero = null, sections = [], media = true } = {}) => {
   const slides = (hero && Array.isArray(hero.data.slides) && hero.data.slides) || [];
+  const rows = sections.filter((section) => section.type === 'product_row');
+  const grids = sections.filter((section) => section.type === 'link_grid');
+  const banners = sections.filter((section) => section.type === 'image_banner');
 
   return html`
     <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
       <div>
         <h1 class="heading-font text-uppercase h4 mb-1">Home page content</h1>
         <p class="text-secondary fs-7 mb-0">
-          The announcement bar that sits above the header on every page, and the video, wording and links of the hero.
-          Both are on the site already - these forms change what they show, never how they are laid out.
+          The announcement bar that sits above the header on every page, the video, wording and links of the hero, the
+          product rows under it and the blocks that close the page. All of it is on the site already - these forms change
+          what the blocks show, never how they are laid out.
         </p>
         <p class="text-secondary fs-8 mb-0">
           <a class="text-secondary" href="/admin/categories">Product categories</a> live on their own screen.
@@ -671,6 +836,27 @@ export const homeView = ({ settings = {}, hero = null, media = true } = {}) => {
             </p>
           </div>
         </div>`}
+
+    <h2 class="h6 text-uppercase mb-1 mt-4">Product rows</h2>
+    <p class="text-secondary fs-7 mb-3">
+      The blocks between the hero and the banners. What a row lists comes from the product switches on a category screen
+      - <strong>New</strong>, <strong>Best Selling</strong> and <strong>Homepage row</strong> - so ticking one there is
+      what puts a product in the row.
+    </p>
+    ${rows.length
+      ? rows.map((section) => productRowPanel({ section }))
+      : html`<p class="fs-7 text-secondary mb-0">The homepage has no product rows.</p>`}
+
+    <h2 class="h6 text-uppercase mb-1 mt-4">Bottom blocks</h2>
+    <p class="text-secondary fs-7 mb-3">
+      The tiles that send shoppers on, and the banners that close the page. Their markup and styling stay exactly as they
+      are - these forms change the image, the words and where they link.
+    </p>
+    ${grids.map((section) => linkGridPanel({ section, media }))}
+    ${banners.map((section) => imageBannerPanel({ section, media }))}
+    ${grids.length || banners.length
+      ? ''
+      : html`<p class="fs-7 text-secondary mb-0">The homepage has no tiles or banners to edit.</p>`}
   `;
 };
 

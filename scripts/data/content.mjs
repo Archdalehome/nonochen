@@ -229,10 +229,13 @@ export const menu = {
 
 export const sections = [
   /* The homepage blocks, in the order the storefront shows them: the hero, then
-     the three product blocks the shop asked for - "New Products", "Discover
-     Products & Ranges", "All Products" - then the banner blocks. The order lives
-     in `position`; `migrations/0009_home_block_order.sql` moves the same rows in
-     a database that is already seeded, so keep the two in step. */
+     the product blocks the shop asked for - the ones products are ticked into
+     ("New Products", "Best Selling", "All Products") around the masonry - then
+     the banner blocks. What a row lists comes from the product switches the
+     category screens write, so `source` alone decides it. The order lives in
+     `position`; `migrations/0009_home_block_order.sql` and
+     `migrations/0010_best_selling_row.sql` move the same rows in a database that
+     is already seeded, so keep them in step. */
   {
     page: 'home',
     type: 'hero',
@@ -263,19 +266,27 @@ export const sections = [
     data: {
       heading: 'New Products',
       subheading: '',
-      source: 'collection',
-      pickers: [
-        { label: 'B-Cushion Art Collection', collection: 'b-cushion-art-collection' },
-        { label: 'B-Mat', collection: 'b-mat' },
-      ],
-      view_all: { label: 'VIEW ALL', url: '/collections/b-cushion-art-collection' },
+      source: 'new',
+      view_all: { label: 'VIEW ALL', url: '/products' },
+    },
+  },
+  {
+    page: 'home',
+    type: 'product_row',
+    name: 'Best Selling',
+    position: 3,
+    data: {
+      heading: 'Best Selling',
+      subheading: '',
+      source: 'best',
+      view_all: { label: 'VIEW ALL', url: '/products' },
     },
   },
   {
     page: 'home',
     type: 'masonry',
     name: 'Discover Products & Ranges',
-    position: 3,
+    position: 4,
     data: {
       heading: 'Discover Products & Ranges',
       intro: 'Some of our other products & ranges perfect for your furniture collection',
@@ -292,7 +303,7 @@ export const sections = [
     page: 'home',
     type: 'product_row',
     name: 'All Products',
-    position: 4,
+    position: 5,
     data: {
       heading: 'All Products',
       subheading: '',
@@ -305,7 +316,7 @@ export const sections = [
     page: 'home',
     type: 'link_grid',
     name: 'Shop Outdoor / Shop Indoor',
-    position: 5,
+    position: 6,
     data: {
       items: [
         { label: 'Shop Outdoor', image: '/images/banner-shop-outdoor.jpg', url: '/collections/outdoor-range', height: '60vh' },
@@ -317,7 +328,7 @@ export const sections = [
     page: 'home',
     type: 'image_banner',
     name: 'Are you sitting comfortably?',
-    position: 6,
+    position: 7,
     data: {
       image: '/images/banner-facts.jpg',
       object_position: '88.1869% 85.9167%',
@@ -329,7 +340,7 @@ export const sections = [
     page: 'home',
     type: 'image_banner',
     name: 'Keep Cosy Anywhere',
-    position: 7,
+    position: 8,
     data: {
       image: '/images/banner-b-blanket.png',
       title: 'Keep Cosy Anywhere',

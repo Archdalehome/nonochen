@@ -343,6 +343,153 @@ export const normalizeHero = (data, stored = {}) => {
   };
 };
 
+/* -------------------------------------------- homepage section rules ---- */
+
+/**
+ * The product rows under the hero, the tiles of the link grid and the image
+ * banners are rows in `sections` that `views/home.js` renders; /admin/home
+ * edits them. These rules only police what those forms may store, and copy
+ * every field a form does not carry through untouched, so saving one field can
+ * never drop another.
+ *
+ * A product row reads one product switch - the same toggles the product form
+ * writes (`is_new`, `price_from`, `show_in_home_grid`, see `productList` in
+ * `lib/db.js`). A row that still lists collections keeps its `pickers`, which
+ * this screen does not edit.
+ *
+ * The keys are the query values /admin/home reports errors with, so
+ * `src/index.js` turns them straight into notices.
+ */
+export const SECTION_ERRORS = {
+  'row-heading': 'A product row needs a heading, for example New Products.',
+  'row-source': 'Pick what the row lists: the products ticked New, the ones ticked Best Selling, or the ones ticked Homepage row.',
+  'row-link': 'Links have to start with "/" (for example /collections/outdoor-range) or be a full https:// URL.',
+  'grid-label': 'A tile needs the words shown over it, for example Shop Outdoor.',
+  'grid-url': 'A tile needs a link: "/" (for example /collections/outdoor-range) or a full https:// URL.',
+  'grid-image': 'A tile needs a background image: a path such as /images/banner-shop-outdoor.jpg or a full https:// URL.',
+  'grid-height': 'The tile height has to be a number with a unit, for example 60vh or 420px.',
+  'grid-item': 'That tile is not part of this block any more - reload the screen and try again.',
+  'banner-image': 'A banner needs an image: a path such as /images/banner-facts.jpg or a full https:// URL.',
+  'banner-position': 'The image position has to be percentages or keywords, for example 88% 86% or center 20%.',
+  'banner-link': 'Links have to start with "/" (for example /collections/b-blanket) or be a full https:// URL.',
+  'banner-button': 'A button needs a label and a link - clear the label to show the copy without a button.',
+  'banner-colour': 'The button colour has to be a hex value such as #18181B.',
+};
+
+/** What one product row can list. The first three read a product switch. */
+export const PRODUCT_ROW_SOURCES = [
+  { value: 'new', label: 'Products ticked "New"' },
+  { value: 'best', label: 'Products ticked "Best Selling"' },
+  { value: 'grid', label: 'Products ticked "Homepage row" (All products)' },
+  { value: 'collection', label: 'The collections picked for this row' },
+];
+
+/** The button classes `public/css/site.css` styles; anything else renders flat. */
+export const BANNER_BUTTONS = ['btn-primary', 'btn-white', 'btn-light', 'btn-outline-primary', 'btn-outline-secondary'];
+
+const TILE_HEIGHT = /^\d{1,4}(px|vh|rem|em|%)$/;
+// `views/home.js` writes this straight into a `style` attribute, so anything
+// that could close the attribute (quotes, semicolons) is refused.
+const IMAGE_POSITION = /^[0-9A-Za-z.%\s-]{1,60}$/;
+const HEX_COLOUR = /^#[0-9a-fA-F]{3,8}$/;
+
+/** One product row: its heading, what it lists and the "view all" button. */
+export const normalizeProductRow = (data, stored = {}) => {
+  const heading = clip(data.heading, 80).replace(/\s+/g, ' ');
+  const subheading = clip(data.subheading, 200).replace(/\s+/g, ' ');
+  const source = String(data.source || '');
+  const viewAllLabel = clip(data.view_all_label, 40);
+  const viewAllUrl = clip(data.view_all_url, 300);
+  const error = !heading
+    ? 'heading'
+    : !PRODUCT_ROW_SOURCES.some((item) => item.value === source)
+      ? 'source'
+      : viewAllLabel && !onSite(viewAllUrl)
+        ? 'link'
+        : '';
+  if (error) return { error, message: SECTION_ERRORS[`row-${error}`], values: null };
+
+  const next = { ...stored, heading, subheading, source };
+  if (viewAllLabel) next.view_all = { ...(stored.view_all || {}), label: viewAllLabel, url: viewAllUrl };
+  else delete next.view_all;
+  return { error: '', message: '', values: next };
+};
+
+/** One tile of the link grid: the words over it, where it links and its image. */
+export const normalizeLinkGridItem = (data, stored = {}) => {
+  const items = Array.isArray(stored.items) ? stored.items : [];
+  const index = Number(data.item);
+  const current = Number.isInteger(index) && index >= 0 && index < items.length ? items[index] : null;
+  if (!current) return { error: 'item', message: SECTION_ERRORS['grid-item'], values: null };
+
+  const label = clip(data.label, 60).replace(/\s+/g, ' ');
+  const url = clip(data.url, 300);
+  const image = clip(data.image, 300);
+  const height = clip(data.height, 20);
+  const error = !label
+    ? 'label'
+    : !onSite(url)
+      ? 'url'
+      : !onSite(image)
+        ? 'image'
+        : height && !TILE_HEIGHT.test(height)
+          ? 'height'
+          : '';
+  if (error) return { error, message: SECTION_ERRORS[`grid-${error}`], values: null };
+
+  const next = { ...current, label, url, image };
+  if (height) next.height = height;
+  // An empty height means the renderer's own default (60vh).
+  else delete next.height;
+  return {
+    error: '',
+    message: '',
+    values: { ...stored, items: items.map((item, position) => (position === index ? next : item)) },
+  };
+};
+
+/** One image banner: its image, the copy over it and the button under it. */
+export const normalizeImageBanner = (data, stored = {}) => {
+  const image = clip(data.image, 300);
+  const objectPosition = clip(data.object_position, 60);
+  const title = clip(data.title, 120);
+  const text = clip(data.text, 600);
+  const buttonLabel = clip(data.button_label, 60);
+  const buttonUrl = clip(data.button_url, 300);
+  const buttonColour = clip(data.button_color, 20);
+  const buttonStyle = BANNER_BUTTONS.includes(String(data.button_style)) ? String(data.button_style) : '';
+  const error = !onSite(image)
+    ? 'image'
+    : objectPosition && !IMAGE_POSITION.test(objectPosition)
+      ? 'position'
+      : buttonUrl && !onSite(buttonUrl)
+        ? 'link'
+        : buttonLabel && !buttonUrl
+          ? 'button'
+          : buttonColour && !HEX_COLOUR.test(buttonColour)
+            ? 'colour'
+            : '';
+  if (error) return { error, message: SECTION_ERRORS[`banner-${error}`], values: null };
+
+  const next = { ...stored, image, title, text };
+  if (objectPosition) next.object_position = objectPosition;
+  else delete next.object_position;
+  // The button only exists while it has a label; without one `views/home.js`
+  // renders the copy block on its own.
+  if (buttonLabel) {
+    const was = stored.button || {};
+    next.button = {
+      ...was,
+      label: buttonLabel,
+      url: buttonUrl,
+      style: buttonStyle || was.style || 'btn-primary',
+      color: buttonColour || was.color || '#18181B',
+    };
+  } else delete next.button;
+
+  return { error: '', message: '', values: next };
+};
+
 /* ------------------------------------------------------------ footer rules ---- */
 
 /**

@@ -39,6 +39,7 @@ import {
   relatedProducts,
   removeProductFromCategory,
   saveSectionData,
+  saveSectionEnabled,
   saveSettings,
   searchProducts,
   sections,
@@ -57,8 +58,12 @@ import {
   normalizeFooterGroup,
   normalizeFooterLink,
   normalizeHero,
+  normalizeImageBanner,
+  normalizeLinkGridItem,
   normalizeProduct,
+  normalizeProductRow,
   safeNext,
+  SECTION_ERRORS,
   sessionUser,
   verifyLogin,
 } from './lib/admin.js';
@@ -152,6 +157,9 @@ const view = (ctx, { title, description, canonical, image, body, bodyClass, stat
 
 /* --------------------------------------------------------------------- home ---- */
 
+/** The `source` values a homepage row reads a product switch from. */
+const ROW_FLAGS = ['new', 'best', 'grid'];
+
 /** Loads the products that each `product_row` section on a page needs. */
 const productsForSections = async (db, list) => {
   const map = {};
@@ -160,16 +168,19 @@ const productsForSections = async (db, list) => {
       .filter((section) => section.type === 'product_row')
       .map(async (section) => {
         const { source, pickers = [] } = section.data;
+        // A row driven by a product switch (New / Best Selling / All products)
+        // lists one run of products; a row that names collections keeps its tabs.
+        if (ROW_FLAGS.includes(source)) {
+          map[section.id] = [{ label: '', products: await productList(db, { flag: source, limit: 12 }) }];
+          return;
+        }
         const tabs = pickers.length
           ? pickers
           : [{ label: section.data.heading || 'Featured', collection: section.data.collection || '' }];
         map[section.id] = await Promise.all(
           tabs.map(async (tab) => ({
             label: tab.label,
-            products:
-              source === 'grid' && !pickers.length
-                ? await productList(db, { gridOnly: true, limit: 12 })
-                : await productList(db, { collection: tab.collection, limit: 12 }),
+            products: await productList(db, { collection: tab.collection, limit: 12 }),
           }))
         );
       })
@@ -397,7 +408,9 @@ const PRODUCT_NOTICES = {
 
 /**
  * And for `/admin/home`, which writes the announcement bar (`settings`) and the
- * homepage hero (`sections`). The keys are prefixed with the form they come from.
+ * homepage blocks (`sections`): the hero, the product rows under it and the tiles
+ * and banners that close the page. The keys are prefixed with the form they come
+ * from.
  */
 const HOME_NOTICES = {
   'bar-saved': { kind: 'success', message: 'Announcement bar saved - every page shows it from its next request on.' },
@@ -431,6 +444,30 @@ const HOME_NOTICES = {
     kind: 'danger',
     message: 'No MEDIA bucket is bound to this Worker, so the file could not be stored - type a path such as /images/hero-outdoor-desktop.mp4 instead.',
   },
+  'row-saved': { kind: 'success', message: 'Product row saved - reload the homepage to see it.' },
+  'grid-saved': { kind: 'success', message: 'Tile saved - reload the homepage to see it.' },
+  'banner-saved': { kind: 'success', message: 'Banner saved - reload the homepage to see it.' },
+  'section-shown': { kind: 'success', message: 'That block is back on the homepage.' },
+  'section-hidden': {
+    kind: 'success',
+    message: 'That block is off the homepage. Nothing was deleted, so switching it on again brings it back exactly as it was.',
+  },
+  'section-missing': {
+    kind: 'danger',
+    message: 'That homepage block is not there (any more) - reload the screen and try again.',
+  },
+  'media-type': { kind: 'danger', message: 'That file type is not supported: images have to be JPEG, PNG, WebP or AVIF.' },
+  'media-size': { kind: 'danger', message: 'That file is too big - the upload limit is 25 MB.' },
+  'media-storage': {
+    kind: 'danger',
+    message: 'No MEDIA bucket is bound to this Worker, so the file could not be stored - type the path of an image that is already on the site instead.',
+  },
+  // The product rows and the bottom blocks have one error each per rule; the
+  // wording lives in `lib/admin.js`, next to the rule that decides it, and is
+  // folded in here so every screen reports errors the same way.
+  ...Object.fromEntries(
+    Object.entries(SECTION_ERRORS).map(([key, message]) => [key, { kind: 'danger', message }])
+  ),
 };
 
 /**
@@ -578,6 +615,7 @@ const adminHomePage = async (request, env, user) => {
     body: homeView({
       settings: siteSettings,
       hero: list.find((section) => section.type === 'hero') || null,
+      sections: list,
       media: Boolean(env.MEDIA),
     }),
     flash: adminNotice(new URL(request.url), HOME_NOTICES),
@@ -602,11 +640,26 @@ const uploadedFile = (form, name) => {
  * from. The objects keep the `images/` prefix scripts/upload-media.mjs uses, so
  * the existing `/images/*` route reads them the same way.
  */
-const storeHeroFile = async (env, file, kind) => {
+const storeMediaFile = async (env, file, kind) => {
   const checked = mediaKey(file, kind);
   if (checked.error) return checked;
   await env.MEDIA.put(checked.key, file.stream(), { httpMetadata: { contentType: checked.contentType } });
   return checked;
+};
+
+/**
+ * A picked file replaces the text field next to it, so the two controls of a
+ * media field can never disagree. Returns the notice key to report, or '' when
+ * the field is fine (including when the picker was left alone).
+ */
+const storeImageUpload = async (env, form, input, fields, field) => {
+  const file = uploadedFile(form, input);
+  if (!file) return '';
+  if (!env.MEDIA) return 'media-storage';
+  const stored = await storeMediaFile(env, file, 'image');
+  if (stored.error) return stored.error === 'size' ? 'media-size' : 'media-type';
+  fields[field] = stored.path;
+  return '';
 };
 
 /**
@@ -631,7 +684,7 @@ const adminHeroSave = async (request, env) => {
     const file = uploadedFile(form, input);
     if (!file) continue;
     if (!env.MEDIA) return redirect('/admin/home?error=hero-storage');
-    const stored = await storeHeroFile(env, file, kind);
+    const stored = await storeMediaFile(env, file, kind);
     if (stored.error) return redirect(`/admin/home?error=hero-${stored.error === 'size' ? 'size' : 'type'}`);
     fields[field] = stored.path;
   }
@@ -640,6 +693,73 @@ const adminHeroSave = async (request, env) => {
   if (error) return redirect(`/admin/home?error=hero-${error}`);
   const saved = await saveSectionData(env.DB, hero.id, values);
   return redirect(saved ? '/admin/home?flash=hero-saved' : '/admin/home?error=hero-missing');
+};
+
+/* ------------------------------------------------- product rows and blocks ---- */
+
+/**
+ * The product rows, tiles and banners under the hero. They are `sections` rows
+ * too, and every form on the screen posts one set of fields against the block it
+ * belongs to, so each handler reads only that block and leaves the rest of the
+ * page - and every field it does not carry - exactly as it was.
+ */
+const homeRedirect = (query = '') => redirect(`/admin/home${query ? `?${query}` : ''}`);
+
+/** The `sections` row one block form posted, or null once it has gone. */
+const postedSection = async (db, fields, types) => {
+  const id = Number(fields.section_id) || 0;
+  if (!id) return null;
+  const list = await pageSections(db, 'home');
+  return list.find((section) => section.id === id && types.includes(section.type)) || null;
+};
+
+/** The heading, wording and "view all" button of one product row. */
+const adminProductRowSave = async (request, env) => {
+  const data = await readForm(request);
+  const section = await postedSection(env.DB, data, ['product_row']);
+  if (!section) return homeRedirect('error=section-missing');
+  const { error, values } = normalizeProductRow(data, section.data);
+  if (error) return homeRedirect(`error=row-${error}`);
+  const saved = await saveSectionData(env.DB, section.id, values);
+  return homeRedirect(saved ? 'flash=row-saved' : 'error=section-missing');
+};
+
+/** One tile of one link grid: its words, its link and its image. */
+const adminLinkGridSave = async (request, env) => {
+  const form = await request.formData();
+  const data = Object.fromEntries([...form.entries()].map(([key, value]) => [key, typeof value === 'string' ? value : '']));
+  const section = await postedSection(env.DB, data, ['link_grid']);
+  if (!section) return homeRedirect('error=section-missing');
+  const upload = await storeImageUpload(env, form, 'image_file', data, 'image');
+  if (upload) return homeRedirect(`error=${upload}`);
+  const { error, values } = normalizeLinkGridItem(data, section.data);
+  if (error) return homeRedirect(`error=grid-${error}`);
+  const saved = await saveSectionData(env.DB, section.id, values);
+  return homeRedirect(saved ? 'flash=grid-saved' : 'error=section-missing');
+};
+
+/** One image banner: its image, the copy over it and the button under it. */
+const adminImageBannerSave = async (request, env) => {
+  const form = await request.formData();
+  const data = Object.fromEntries([...form.entries()].map(([key, value]) => [key, typeof value === 'string' ? value : '']));
+  const section = await postedSection(env.DB, data, ['image_banner']);
+  if (!section) return homeRedirect('error=section-missing');
+  const upload = await storeImageUpload(env, form, 'image_file', data, 'image');
+  if (upload) return homeRedirect(`error=${upload}`);
+  const { error, values } = normalizeImageBanner(data, section.data);
+  if (error) return homeRedirect(`error=banner-${error}`);
+  const saved = await saveSectionData(env.DB, section.id, values);
+  return homeRedirect(saved ? 'flash=banner-saved' : 'error=section-missing');
+};
+
+/** Switches one whole block on or off, leaving what is in it alone. */
+const adminSectionToggle = async (request, env) => {
+  const data = await readForm(request);
+  const section = await postedSection(env.DB, data, ['product_row', 'link_grid', 'image_banner']);
+  if (!section) return homeRedirect('error=section-missing');
+  const enabled = data.enabled === '1';
+  await saveSectionEnabled(env.DB, section.id, enabled);
+  return homeRedirect(enabled ? 'flash=section-shown' : 'flash=section-hidden');
 };
 
 /* ---------------------------------------------------------------- footer ---- */
@@ -864,6 +984,10 @@ const adminRoute = async (request, env, path, method) => {
   }
   if (path === '/admin/home/announcement') return isPost ? adminAnnouncementSave(request, env) : methodNotAllowed();
   if (path === '/admin/home/hero') return isPost ? adminHeroSave(request, env) : methodNotAllowed();
+  if (path === '/admin/home/product-row') return isPost ? adminProductRowSave(request, env) : methodNotAllowed();
+  if (path === '/admin/home/link-grid') return isPost ? adminLinkGridSave(request, env) : methodNotAllowed();
+  if (path === '/admin/home/image-banner') return isPost ? adminImageBannerSave(request, env) : methodNotAllowed();
+  if (path === '/admin/home/section') return isPost ? adminSectionToggle(request, env) : methodNotAllowed();
   if (path === '/admin/footer') {
     if (isPost) return methodNotAllowed();
     return isGet ? adminFooterPage(request, env, user) : methodNotAllowed();
