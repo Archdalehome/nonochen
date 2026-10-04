@@ -109,20 +109,20 @@ const placement = (body) => {
 const placedOk = (result) => result.inRow && result.inMenu && result.menuClean;
 
 // The homepage keeps the order the shop asked for: the hero, then the product
-// blocks - "New Products", "Best Selling", "Discover Products & Ranges", "All
-// Products" - then the banner blocks. The order is a row of `position` values in
-// D1, so these markers read the database the deployed Worker serves from (see
-// migrations/0009_home_block_order.sql and 0010_best_selling_row.sql). A product
-// row only reaches the page while the products ticked for it are there, and what
-// it lists is a switch the shop sets, so the two switch-driven rows at the top
-// are expected rather than required. They join the retry loop below because a
-// release that is still rolling out serves the previous markup.
+// blocks - "New Products", "Best Selling", "All Products" - then the banner
+// blocks. The order is a row of `position` values in D1, so these markers read
+// the database the deployed Worker serves from (see
+// migrations/0009_home_block_order.sql, 0010_best_selling_row.sql and
+// 0011_drop_masonry_section.sql). A product row only reaches the page while the
+// products ticked for it are there, and what it lists is a switch the shop sets,
+// so the two switch-driven rows at the top are expected rather than required.
+// They join the retry loop below because a release that is still rolling out
+// serves the previous markup.
 const rowHeading = (text) => `<h2 class="heading-font text-uppercase fw-normal fs-2 mb-2">${text}</h2>`;
 const blockMarkers = [
   { label: 'the hero', marker: 'id="hero-', required: true },
   { label: '"New Products"', marker: rowHeading('New Products'), required: false },
   { label: '"Best Selling"', marker: rowHeading('Best Selling'), required: false },
-  { label: '"Discover Products &amp; Ranges"', marker: rowHeading('Discover Products &amp; Ranges'), required: true },
   { label: '"All Products"', marker: rowHeading('All Products'), required: true },
 ];
 const blockOrder = (body) => blockMarkers.map(({ marker }) => body.indexOf(marker));
@@ -177,6 +177,13 @@ const emptyRows = blockMarkers
   .map((block) => block.label);
 if (emptyRows.length) {
   console.log(`     note: the homepage shows no ${emptyRows.join(' / ')} row - no products are ticked for it yet`);
+}
+// The "Discover Products & Ranges" block was deleted from `sections` (see
+// migrations/0011_drop_masonry_section.sql), so neither its heading nor its
+// intro line may come back with a future seed or admin change.
+if (homeBody.includes('Discover Products') || homeBody.includes('Some of our other products')) {
+  failures++;
+  console.log('FAIL the homepage still renders the deleted "Discover Products & Ranges" block');
 }
 // The categories as the header lists them - link -> name. The product detail
 // breadcrumb below has to name one of these, so the label matters as well.

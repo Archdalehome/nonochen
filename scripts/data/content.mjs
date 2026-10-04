@@ -230,12 +230,13 @@ export const menu = {
 export const sections = [
   /* The homepage blocks, in the order the storefront shows them: the hero, then
      the product blocks the shop asked for - the ones products are ticked into
-     ("New Products", "Best Selling", "All Products") around the masonry - then
-     the banner blocks. What a row lists comes from the product switches the
-     category screens write, so `source` alone decides it. The order lives in
-     `position`; `migrations/0009_home_block_order.sql` and
-     `migrations/0010_best_selling_row.sql` move the same rows in a database that
-     is already seeded, so keep them in step. */
+     ("New Products", "Best Selling", "All Products") - then the banner blocks.
+     What a row lists comes from the product switches the category screens write,
+     so `source` alone decides it. The order lives in `position`;
+     `migrations/0009_home_block_order.sql`,
+     `migrations/0010_best_selling_row.sql` and
+     `migrations/0011_drop_masonry_section.sql` move the same rows in a database
+     that is already seeded, so keep them in step. */
   {
     page: 'home',
     type: 'hero',
@@ -284,26 +285,9 @@ export const sections = [
   },
   {
     page: 'home',
-    type: 'masonry',
-    name: 'Discover Products & Ranges',
-    position: 4,
-    data: {
-      heading: 'Discover Products & Ranges',
-      intro: 'Some of our other products & ranges perfect for your furniture collection',
-      span_rows: 2,
-      items: [
-        { label: 'B-Poufe', image: '/images/modular-b-poufe.png', url: '/collections/b-poufe-all-styles', span: 'g-col-6 g-col-md-3', align: 'align-items-start' },
-        { label: 'Cushions', image: '/images/modular-cushions.png', url: '/collections/b-cushion', span: 'g-col-6 g-col-md-3', align: 'align-items-start' },
-        { label: 'Lighting', image: '/images/modular-lighting.png', url: '/collections/lighting-all-styles', span: 'g-col-12 g-col-md-6 row-span-md-2', align: 'align-items-center' },
-        { label: 'B-Dogbed', image: '/images/modular-dogbed.png', url: '/collections/pets-range', span: 'g-col-12 g-col-md-6', align: 'align-items-start' },
-      ],
-    },
-  },
-  {
-    page: 'home',
     type: 'product_row',
     name: 'All Products',
-    position: 5,
+    position: 4,
     data: {
       heading: 'All Products',
       subheading: '',
@@ -316,7 +300,7 @@ export const sections = [
     page: 'home',
     type: 'link_grid',
     name: 'Shop Outdoor / Shop Indoor',
-    position: 6,
+    position: 5,
     data: {
       items: [
         { label: 'Shop Outdoor', image: '/images/banner-shop-outdoor.jpg', url: '/collections/outdoor-range', height: '60vh' },
@@ -328,7 +312,7 @@ export const sections = [
     page: 'home',
     type: 'image_banner',
     name: 'Are you sitting comfortably?',
-    position: 7,
+    position: 6,
     data: {
       image: '/images/banner-facts.jpg',
       object_position: '88.1869% 85.9167%',
@@ -340,7 +324,7 @@ export const sections = [
     page: 'home',
     type: 'image_banner',
     name: 'Keep Cosy Anywhere',
-    position: 8,
+    position: 7,
     data: {
       image: '/images/banner-b-blanket.png',
       title: 'Keep Cosy Anywhere',

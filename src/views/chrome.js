@@ -65,6 +65,18 @@ export const mobileNav = (categories = [], path = '') => html`
 
 /* ------------------------------------------------------------------ header ---- */
 
+/**
+ * The top of every page: the announcement bar, the row with the logo, the
+ * categories, the search and the cart, and the phone drawer.
+ *
+ * The bar and the row are pinned to the top of the window by
+ * `public/css/site.css`, so they stay visible while the page scrolls under them.
+ *
+ * The drawer is rendered after the `<header>` rather than inside it: the pinned
+ * header carries a `z-index`, which makes it a stacking context, and Bootstrap
+ * puts its offcanvas backdrop on `body` above that - a drawer inside the header
+ * would end up underneath its own backdrop.
+ */
 export const header = (settings, cart, categories = [], path = '') => html`
   <header class="site-header">
     <div class="site-header__bar">
@@ -98,5 +110,5 @@ export const header = (settings, cart, categories = [], path = '') => html`
         </div>
       </nav>
     </div>
-    ${mobileNav(categories, path)}
-  </header>`;
+  </header>
+  ${mobileNav(categories, path)}`;

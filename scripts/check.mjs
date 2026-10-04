@@ -81,18 +81,26 @@ for (const setting of settings) {
 
 // The homepage reads its blocks from `sections` ordered by `position`: the hero,
 // then the product blocks the shop asked for, then the banner blocks.
-// `migrations/0009_home_block_order.sql` and `0010_best_selling_row.sql` move the
-// same rows in a database that is already seeded, so the three have to keep the
-// same names.
+// `migrations/0009_home_block_order.sql`, `0010_best_selling_row.sql` and
+// `0011_drop_masonry_section.sql` move the same rows in a database that is
+// already seeded, so the rows have to keep the same names.
 const homeBlocks = seedSections
   .filter((section) => section.page === 'home' && section.enabled !== 0)
   .sort((a, b) => (a.position || 0) - (b.position || 0))
   .map((section) => section.name);
-const wantedBlocks = ['Homepage carousel', 'New Products', 'Best Selling', 'Discover Products & Ranges', 'All Products'];
+const wantedBlocks = ['Homepage carousel', 'New Products', 'Best Selling', 'All Products'];
 for (const [index, name] of wantedBlocks.entries()) {
   if (homeBlocks[index] !== name) {
     failures.push(`content: homepage block ${index + 1} should be ${name}, not ${homeBlocks[index] || '(none)'}`);
   }
+}
+
+// The "Discover Products & Ranges" masonry block that used to sit between "Best
+// Selling" and "All Products" was deleted from the homepage
+// (migrations/0011_drop_masonry_section.sql), so it must not come back with the
+// seed either.
+if (seedSections.some((section) => section.page === 'home' && section.type === 'masonry')) {
+  failures.push('content: the deleted "Discover Products & Ranges" block is back on the homepage');
 }
 
 // 4. the header categories and the admin screens must render
