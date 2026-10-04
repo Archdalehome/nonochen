@@ -881,6 +881,14 @@ const previewName = preview.indexOf('<strong>Chen Furniture</strong>');
 if (previewMark < 0 || previewMark > previewName) {
   failures.push('views: the footer company block preview should show the logo beside the name');
 }
+// The mock is a thumbnail, but it keeps the arrangement and the proportions of the
+// real lockup: the name on the mark's bottom edge, the thumbnail a tenth bigger too.
+if (!preview.slice(0, previewName).includes('align-items-end')) {
+  failures.push("views: the footer company block preview should set the name on the mark's bottom edge");
+}
+if (!preview.includes('style="max-height: 4.95rem"')) {
+  failures.push('views: the footer company block preview should show the taller logo');
+}
 
 // The storefront renders those very columns, splits the row between them and
 // sends a link that leaves the site to a new tab.
@@ -960,13 +968,39 @@ if (markAt < 0 || nameAt < 0) {
   failures.push('views: the footer logo should sit to the left of the company name');
 }
 // The lockup's rule is the brand layer's, next to `.footer-logo` / `.footer-brand`:
-// one line, and the smaller name that fits beside the mark.
+// one line, the name a fifth smaller than the standalone wordmark, and the two of
+// them sharing one bottom edge.
 const siteCss = readFileSync(new URL('public/css/site.css', root), 'utf8');
+const siteRule = (selector) => new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(siteCss)?.[1] ?? '';
+const siteClamp = (rule) => {
+  const terms = /font-size:\s*clamp\(([^)]*)\)/.exec(rule)?.[1];
+  return terms ? terms.split(',').map((term) => Number.parseFloat(term)) : [];
+};
 if (!/\.footer-brand-row\s*\{[^}]*display:\s*flex/.test(siteCss)) {
   failures.push('css: the footer logo and company name should share one line');
 }
-if (!/\.footer-brand-row\s+\.footer-brand\s*\{[^}]*font-size:/.test(siteCss)) {
-  failures.push('css: the company name beside the logo should be one size smaller');
+if (!/\.footer-brand-row\s*\{[^}]*align-items:\s*flex-end/.test(siteCss)) {
+  failures.push('css: the company name should sit on the bottom edge of the logo');
+}
+const standaloneName = siteRule('\\.footer-brand');
+const besideMarkName = siteRule('\\.footer-brand-row\\s+\\.footer-brand');
+const standaloneSize = siteClamp(standaloneName);
+const besideMarkSize = siteClamp(besideMarkName);
+if (standaloneSize.length !== 3 || besideMarkSize.length !== 3) {
+  failures.push('css: the footer company name should carry a font size of its own beside the logo');
+} else if (!besideMarkSize.every((size, i) => size < standaloneSize[i])) {
+  failures.push('css: the company name beside the logo should sit under the size it carries on its own line');
+}
+// Another fifth off the size the name took when it first moved beside the mark
+// (0.8 x clamp(1.35rem, 2.8vw, 1.95rem)), so the caption keeps dropping away from
+// the wordmark.
+if (!/font-size:\s*clamp\(1\.08rem,\s*2\.24vw,\s*1\.56rem\)/.test(besideMarkName)) {
+  failures.push('css: the company name beside the logo should drop another fifth, to clamp(1.08rem, 2.24vw, 1.56rem)');
+}
+// The mark stands a tenth over the 3.5rem it used to: 3.85rem.
+const markCap = /\.footer-logo\s*\{[^}]*max-height:\s*([\d.]+)rem/.exec(siteCss)?.[1];
+if (markCap !== '3.85') {
+  failures.push(`css: the footer logo should stand 10% over 3.5rem (found ${markCap ?? 'no max-height'})`);
 }
 
 // 7. the footer form rules behind that screen

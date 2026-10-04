@@ -153,11 +153,12 @@ a:hover { color: var(--bs-link-hover-color); }
 .bg-footer { background-color: var(--cf-footer-bg); }
 
 /* The company logo uploaded in /admin/footer, beside the wordmark. Without one
-   the wordmark is all the company block shows, exactly as it did before. */
+   the wordmark is all the company block shows, exactly as it did before. The cap
+   is a tenth over the 3.5rem the mark used to take. */
 .footer-logo {
   width: auto;
   max-width: 100%;
-  max-height: 3.5rem;
+  max-height: 3.85rem; /* 3.5rem + 10% */
   object-fit: contain;
 }
 
@@ -171,16 +172,22 @@ a:hover { color: var(--bs-link-hover-color); }
 }
 
 /* Logo and wordmark as one lockup: the mark keeps its own width and the name sits
-   to its right, one step down the heading scale (roughly x1/1.2), so it reads as
-   the mark's caption instead of competing with it. In a narrow column the name
-   wraps under the logo rather than squeezing both. */
+   to its right, a fifth smaller again than the standalone wordmark (0.8 x the
+   clamp above), so it reads as the mark's caption instead of competing with it.
+   Both land on one bottom edge - `flex-end` on the row and a tight line box on the
+   name, so the words sit on the bottom of the mark instead of floating in the
+   middle of it. In a narrow column the name wraps under the logo rather than
+   squeezing both. */
 .footer-brand-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
   gap: 1rem;
 }
-.footer-brand-row .footer-brand { font-size: clamp(1.35rem, 2.8vw, 1.95rem); }
+.footer-brand-row .footer-brand {
+  font-size: clamp(1.08rem, 2.24vw, 1.56rem);
+  line-height: 1;
+}
 .bg-product-image-colour { background-color: var(--cf-surface); }
 
 .img-square {

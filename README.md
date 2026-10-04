@@ -304,10 +304,11 @@ all three in one form:
   (`/images/footer/logo.png`), a full `https://` URL, or a file picked in the form
   - a picked file is stored in R2 under `images/footer/` and the field next to the
   picker is updated to it, the same way the hero videos are handled. It sits to the
-  left of the company name, which drops one size to keep the two on one line (a
-  narrow column wraps the name under the mark). Leaving it empty is fine: the name
-  then takes the line to itself at its full size, which is how that corner of the
-  footer read before the upload existed;
+  left of the company name on the mark's own bottom edge, and the name is a fifth
+  smaller than it is on its own so the two read as one lockup (a narrow column wraps
+  the name under the mark). Leaving it empty is fine: the name then takes the line to
+  itself at its full size, which is how that corner of the footer read before the
+  upload existed;
 * the **company name** is required - the page titles (`<title>`, `og:site_name`)
   and the meta description read the same `site_name` setting;
 * the **description** is the sentence under the name (`brand_line`), and it is

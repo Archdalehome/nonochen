@@ -943,8 +943,8 @@ const footerLinkRow = (link, index, count) => html`
  * page. The columns are rows in `menu_items` (location = 'footer'), so nothing
  * here decides how they are laid out - the screen only changes the words, the
  * links and the order. The company block above them is three `settings` rows
- * instead: the uploaded logo, the name of the business beside it and the
- * description under both.
+ * instead: the uploaded logo, the name of the business beside it - a fifth smaller
+ * and standing on the mark's bottom edge - and the description under both.
  */
 export const footerView = ({ groups = [], settings = {}, media = true } = {}) => html`
   <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
@@ -970,9 +970,9 @@ export const footerView = ({ groups = [], settings = {}, media = true } = {}) =>
       <div class="card-body row g-3">
         <div class="col-12 col-lg-4">
           <p class="form-label fs-8 text-uppercase mb-1">On the site now</p>
-          <div class="d-flex flex-wrap align-items-center gap-2">
+          <div class="d-flex flex-wrap align-items-end gap-2">
             ${settings.footer_logo
-              ? html`<img class="bg-body-secondary rounded p-2" style="max-height: 4.5rem" src="${settings.footer_logo}" alt="${settings.site_name || 'Chen Furniture'}">`
+              ? html`<img class="bg-body-secondary rounded p-2" style="max-height: 4.95rem" src="${settings.footer_logo}" alt="${settings.site_name || 'Chen Furniture'}">`
               : ''}
             <p class="fs-8 text-secondary mb-0">
               <strong>${settings.site_name || 'Chen Furniture'}</strong>
@@ -1016,8 +1016,8 @@ export const footerView = ({ groups = [], settings = {}, media = true } = {}) =>
               ${media
                 ? 'A file you pick is stored in R2 and the field next to it is updated to it.'
                 : 'No MEDIA bucket is bound, so only a path or a URL can be saved.'}
-              The logo sits to the left of the name, which drops one size to sit beside it; leave the logo empty
-              to show the name alone.
+              The logo sits to the left of the name, which is a fifth smaller and stands on the bottom edge of the
+              mark; leave the logo empty to show the name alone.
             </span>
             <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save company block</button>
           </div>
