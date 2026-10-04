@@ -164,9 +164,9 @@ A small admin area manages the **product categories** - the row of links in the
 header, next to the logo and the search/cart icons, on every page -, the **home
 page content** - the announcement bar that sits above that header and the hero
 video with the wording and links over it - and the **footer** under every page:
-the company block in the corner (the uploaded logo, the name of the business and
-the line of copy under it) and the **footer columns** beside it - the column
-headings and the links in them. The mobile drawer shows the same
+the company block in the corner (the uploaded logo, the name of the business
+beside it and the line of copy under both) and the **footer columns** beside it -
+the column headings and the links in them. The mobile drawer shows the same
 category list above its three fixed links - **Search**, **Contact Details** and
 **Store Locator**; the menu tree that came in with the Shopify import is not
 rendered anywhere.
@@ -175,8 +175,9 @@ rendered anywhere.
 * `/admin/home` - the announcement bar and the hero: its video (a path, a URL or
   an upload), the heading, text and links over it
 * `/admin/footer` - the company block at the bottom left of every page (its logo,
-  the company name and the description under it) and the link columns beside it
-  (Company, Follow and Help): upload, rename, reorder, hide and re-fill them
+  the company name beside it and the description under both) and the link columns
+  beside it (Company, Follow and Help): upload, rename, reorder, hide and re-fill
+  them
 * `/admin/categories` - add, rename, reorder, hide and delete categories
 * `/admin/categories/products?slug=<slug>` - the products one category lists:
   edit any row, add a product that is already in the shop, create a brand new
@@ -296,14 +297,16 @@ writes do, so the storefront shows the change on its next request.
 ### The company block
 
 The bottom left corner of every page is the company block: a logo, the name of the
-business and one line of description under it. `/admin/footer` edits all three in
-one form:
+business beside it and one line of description under both. `/admin/footer` edits
+all three in one form:
 
 * the **logo** is a path to an image that is already on the site
   (`/images/footer/logo.png`), a full `https://` URL, or a file picked in the form
   - a picked file is stored in R2 under `images/footer/` and the field next to the
-  picker is updated to it, the same way the hero videos are handled. Leaving it
-  empty is fine: the name then stands on its own, which is how that corner of the
+  picker is updated to it, the same way the hero videos are handled. It sits to the
+  left of the company name, which drops one size to keep the two on one line (a
+  narrow column wraps the name under the mark). Leaving it empty is fine: the name
+  then takes the line to itself at its full size, which is how that corner of the
   footer read before the upload existed;
 * the **company name** is required - the page titles (`<title>`, `og:site_name`)
   and the meta description read the same `site_name` setting;

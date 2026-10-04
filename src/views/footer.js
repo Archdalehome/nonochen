@@ -28,9 +28,11 @@ export const footer = (settings, groups = []) => {
             <div class="row mb-3 mb-md-4">
               <div class="col-12 col-md-8 fs-7">
                 ${settings.footer_logo
-                  ? html`<img class="footer-logo d-block mb-3" src="${settings.footer_logo}" alt="${settings.site_name || 'Chen Furniture'}" loading="lazy">`
-                  : ''}
-                <span class="footer-brand heading-font d-block mb-3">${settings.site_name || 'Chen Furniture'}</span>
+                  ? html`<div class="footer-brand-row mb-3">
+                      <img class="footer-logo" src="${settings.footer_logo}" alt="${settings.site_name || 'Chen Furniture'}" loading="lazy">
+                      <span class="footer-brand heading-font">${settings.site_name || 'Chen Furniture'}</span>
+                    </div>`
+                  : html`<span class="footer-brand heading-font d-block mb-3">${settings.site_name || 'Chen Furniture'}</span>`}
                 ${settings.brand_line}
               </div>
             </div>

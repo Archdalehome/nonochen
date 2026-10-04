@@ -152,7 +152,7 @@ a:hover { color: var(--bs-link-hover-color); }
 /* Surfaces reused across the footer, product tiles and banners. */
 .bg-footer { background-color: var(--cf-footer-bg); }
 
-/* The company logo uploaded in /admin/footer, above the wordmark. Without one
+/* The company logo uploaded in /admin/footer, beside the wordmark. Without one
    the wordmark is all the company block shows, exactly as it did before. */
 .footer-logo {
   width: auto;
@@ -169,6 +169,18 @@ a:hover { color: var(--bs-link-hover-color); }
   letter-spacing: .01em;
   line-height: 1.1;
 }
+
+/* Logo and wordmark as one lockup: the mark keeps its own width and the name sits
+   to its right, one step down the heading scale (roughly x1/1.2), so it reads as
+   the mark's caption instead of competing with it. In a narrow column the name
+   wraps under the logo rather than squeezing both. */
+.footer-brand-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.footer-brand-row .footer-brand { font-size: clamp(1.35rem, 2.8vw, 1.95rem); }
 .bg-product-image-colour { background-color: var(--cf-surface); }
 
 .img-square {

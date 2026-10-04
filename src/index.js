@@ -796,9 +796,9 @@ const footerRedirect = (query = '') => redirect(`/admin/footer${query ? `?${quer
 
 /**
  * The company block that opens the footer: its logo (a file to store in R2, or
- * the path of an image that is already on the site), the company name and the
- * description under it. All three are `settings` rows, so this screen, the
- * storefront and the page titles read the same values.
+ * the path of an image that is already on the site), the company name beside it
+ * and the description under both. All three are `settings` rows, so this screen,
+ * the storefront and the page titles read the same values.
  */
 const adminFooterBrandSave = async (request, env) => {
   const form = await request.formData();

@@ -537,8 +537,8 @@ export const normalizeFooterLink = (data) => {
 };
 
 /**
- * The company block that opens the footer: the logo over the name and the line
- * under it. Unlike the columns it is not a `menu_items` row - the three parts are
+ * The company block that opens the footer: the logo beside the name and the line
+ * under both. Unlike the columns it is not a `menu_items` row - the three parts are
  * `settings` rows (`footer_logo`, `site_name`, `brand_line`), which is what
  * /admin/footer writes and `views/footer.js` renders.
  *
@@ -552,8 +552,9 @@ export const FOOTER_BRAND_ERRORS = {
 
 /**
  * The company block form: the logo (optional - without one the name stands on its
- * own), the name and the description under it. A name is required because the
- * header, the page titles and `views/footer.js` all read the same setting.
+ * own), the name with the logo beside it and the description under both. A name is
+ * required because the header, the page titles and `views/footer.js` all read the
+ * same setting.
  */
 export const normalizeFooterBrand = (data = {}) => {
   const name = clip(data.site_name, 60).replace(/\s+/g, ' ');

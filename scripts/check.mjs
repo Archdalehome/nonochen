@@ -866,6 +866,21 @@ const footerAdminNoMedia = render(footerView({ groups: footerGroups, settings: f
 if (footerAdminNoMedia.includes('name="logo_file"')) {
   failures.push('views: the footer company block offers a file picker without a MEDIA bucket');
 }
+// "On the site now" previews the lockup the storefront draws, so with a logo the
+// name is beside it rather than under it.
+const footerAdminLogo = render(
+  footerView({
+    groups: footerGroups,
+    settings: { ...footerSettings, footer_logo: '/images/footer/42-chen-logo.png' },
+    media: true,
+  })
+);
+const preview = footerAdminLogo.slice(footerAdminLogo.indexOf('>On the site now<'));
+const previewMark = preview.indexOf('<img');
+const previewName = preview.indexOf('<strong>Chen Furniture</strong>');
+if (previewMark < 0 || previewMark > previewName) {
+  failures.push('views: the footer company block preview should show the logo beside the name');
+}
 
 // The storefront renders those very columns, splits the row between them and
 // sends a link that leaves the site to a new tab.
@@ -908,23 +923,50 @@ if (!twoColumns.includes('<div class="col-6">')) {
 }
 
 // The company block itself: the name and the line under it render as they always
-// did, and the uploaded logo is added above them. Without one there is no <img>.
+// did, and an uploaded logo joins the name on its left. Without one there is no
+// <img> and the name keeps the line to itself.
 if (!footerMarkup.includes('>Chen Furniture</span>')) {
   failures.push('views: the storefront footer lost the company name');
 }
 if (footerMarkup.includes('footer-logo')) {
   failures.push('views: the storefront footer renders a logo without an uploaded one');
 }
+if (!footerMarkup.includes('<span class="footer-brand heading-font d-block mb-3">')) {
+  failures.push('views: the footer company name should stand on its own line without a logo');
+}
 const logoFooter = render(
   storefrontFooter({ ...footerSettings, footer_logo: '/images/footer/42-chen-logo.png' }, footerGroups)
 );
 for (const expected of [
-  '<img class="footer-logo d-block mb-3"',
+  '<div class="footer-brand-row mb-3">',
+  '<img class="footer-logo"',
   'src="/images/footer/42-chen-logo.png"',
   'alt="Chen Furniture"',
   '>Chen Furniture</span>',
 ]) {
   if (!logoFooter.includes(expected)) failures.push(`views: the storefront footer is missing ${expected}`);
+}
+// Both sit in that one row, the mark first - that is what puts the name to its
+// right instead of under it.
+const brandRow = logoFooter.slice(
+  logoFooter.indexOf('<div class="footer-brand-row'),
+  logoFooter.indexOf('</div>', logoFooter.indexOf('<div class="footer-brand-row'))
+);
+const markAt = brandRow.indexOf('<img class="footer-logo"');
+const nameAt = brandRow.indexOf('<span class="footer-brand');
+if (markAt < 0 || nameAt < 0) {
+  failures.push('views: the footer logo and the company name should share one row');
+} else if (markAt > nameAt) {
+  failures.push('views: the footer logo should sit to the left of the company name');
+}
+// The lockup's rule is the brand layer's, next to `.footer-logo` / `.footer-brand`:
+// one line, and the smaller name that fits beside the mark.
+const siteCss = readFileSync(new URL('public/css/site.css', root), 'utf8');
+if (!/\.footer-brand-row\s*\{[^}]*display:\s*flex/.test(siteCss)) {
+  failures.push('css: the footer logo and company name should share one line');
+}
+if (!/\.footer-brand-row\s+\.footer-brand\s*\{[^}]*font-size:/.test(siteCss)) {
+  failures.push('css: the company name beside the logo should be one size smaller');
 }
 
 // 7. the footer form rules behind that screen
