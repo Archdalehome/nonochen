@@ -329,9 +329,19 @@ const home = await check('/admin/home', {
 });
 const inputValue = (body, name) => {
   const found = new RegExp(`name="${name}"[^>]*value="([^"]*)"`).exec(body || '');
-  if (!found) return '';
+  return found ? decodeEntities(found[1]) : '';
+};
+
+/** The markup escapes what it prints, so the values posted back are decoded. */
+function decodeEntities(value) {
   const entities = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" };
-  return found[1].replace(/&(amp|lt|gt|quot|#39);/g, (_, entity) => entities[entity]);
+  return String(value || '').replace(/&(amp|lt|gt|quot|#39);/g, (_, entity) => entities[entity]);
+}
+
+/** The same for a `<textarea>`, whose value sits between the tags. */
+const textareaValue = (body, name) => {
+  const found = new RegExp(`<textarea[^>]*name="${name}"[^>]*>([\\s\\S]*?)</textarea>`).exec(body || '');
+  return found ? decodeEntities(found[1]).trim() : '';
 };
 
 const barText = inputValue(home.body, 'announcement_text');
@@ -404,7 +414,7 @@ if (heroId && heroVideo) {
 // production as well.
 const footer = await check('/admin/footer', {
   init: { headers: admin },
-  contains: ['Footer', 'action="/admin/footer/group"', 'action="/admin/footer/link"'],
+  contains: ['Footer', 'action="/admin/footer/brand"', 'action="/admin/footer/group"', 'action="/admin/footer/link"'],
 });
 // The Location heading and the currency picker are gone from both sides of the
 // wire: the screen stopped offering them and the storefront stopped rendering
@@ -501,6 +511,51 @@ if (toggleSectionId) {
   });
 } else {
   console.log('     note: /admin/home lists no blocks to switch - skipping the block switch round trip');
+}
+
+// The company block that opens the footer screen is three settings the storefront
+// reads back (the logo, the company name and the description). Posting the values
+// the screen just showed back proves the whole path (form -> settings -> footer)
+// without changing what the footer says, so this is safe against production too.
+const brandForm = formBlock(footer.body, 'action="/admin/footer/brand"');
+const brandName = inputValue(brandForm, 'site_name');
+const brandLine = textareaValue(brandForm, 'brand_line');
+if (brandName) {
+  await check('/admin/footer/brand', {
+    init: {
+      method: 'POST',
+      headers: adminForm,
+      body: adminBody({
+        site_name: brandName,
+        brand_line: brandLine,
+        footer_logo: inputValue(brandForm, 'footer_logo'),
+      }),
+    },
+    expect: 303,
+    headers: { location: '/admin/footer?flash=brand-saved' },
+  });
+  // The words the screen shows are the ones the footer renders. The block escapes
+  // what it prints, so only values that survive escaping are compared.
+  const shown = [brandName, brandLine].filter((value) => /^[^&<>"']*$/.test(value));
+  if (shown.length) await check('/', { contains: shown });
+  // A logo that is neither a path nor a URL is refused instead of stored, and the
+  // block still needs a name.
+  await check('/admin/footer/brand', {
+    init: {
+      method: 'POST',
+      headers: adminForm,
+      body: adminBody({ site_name: brandName, brand_line: brandLine, footer_logo: 'logo.png' }),
+    },
+    expect: 303,
+    headers: { location: '/admin/footer?error=brand-logo' },
+  });
+  await check('/admin/footer/brand', {
+    init: { method: 'POST', headers: adminForm, body: adminBody({ site_name: '   ', brand_line: brandLine }) },
+    expect: 303,
+    headers: { location: '/admin/footer?error=brand-name' },
+  });
+} else {
+  console.log('     note: /admin/footer lists no company block - skipping the brand round trip');
 }
 
 const columnHeading = inputValue(footer.body, 'label');

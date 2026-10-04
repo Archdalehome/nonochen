@@ -52,9 +52,11 @@ import {
   credentials,
   defaultPasswordInUse,
   destroySession,
+  FOOTER_BRAND_ERRORS,
   mediaKey,
   normalizeAnnouncement,
   normalizeCategory,
+  normalizeFooterBrand,
   normalizeFooterGroup,
   normalizeFooterLink,
   normalizeHero,
@@ -492,6 +494,22 @@ const FOOTER_NOTICES = {
     message: 'Footer links have to start with "/" (for example /pages/about), be a full https:// URL or a mailto: address.',
   },
   'link-missing': { kind: 'danger', message: 'That footer link could not be found.' },
+  'brand-saved': { kind: 'success', message: 'Company block saved - every page shows it from its next request on.' },
+  'brand-storage': {
+    kind: 'danger',
+    message: 'No MEDIA bucket is bound to this Worker, so the logo could not be stored - type the path of an image that is already on the site instead.',
+  },
+  'brand-type': {
+    kind: 'danger',
+    message: 'That file type is not supported: the logo has to be JPEG, PNG, WebP or AVIF.',
+  },
+  'brand-size': { kind: 'danger', message: 'That file is too big - the upload limit is 25 MB.' },
+  // The company block has one error per rule; the wording lives in `lib/admin.js`
+  // next to the rule that decides it and is folded in here, the way the homepage
+  // folds in the section rules.
+  ...Object.fromEntries(
+    Object.entries(FOOTER_BRAND_ERRORS).map(([key, message]) => [key, { kind: 'danger', message }])
+  ),
 };
 
 const adminNotice = (url, notices = ADMIN_NOTICES) => {
@@ -640,8 +658,13 @@ const uploadedFile = (form, name) => {
  * from. The objects keep the `images/` prefix scripts/upload-media.mjs uses, so
  * the existing `/images/*` route reads them the same way.
  */
-const storeMediaFile = async (env, file, kind) => {
-  const checked = mediaKey(file, kind);
+/**
+ * Stores one picked file in R2 and returns the `/images/...` path it is served
+ * from. The objects keep the `images/` prefix scripts/upload-media.mjs uses, so
+ * the existing `/images/*` route reads them the same way.
+ */
+const storeMediaFile = async (env, file, kind, folder = 'hero') => {
+  const checked = mediaKey(file, kind, Date.now(), folder);
   if (checked.error) return checked;
   await env.MEDIA.put(checked.key, file.stream(), { httpMetadata: { contentType: checked.contentType } });
   return checked;
@@ -771,13 +794,40 @@ const adminSectionToggle = async (request, env) => {
  */
 const footerRedirect = (query = '') => redirect(`/admin/footer${query ? `?${query}` : ''}`);
 
+/**
+ * The company block that opens the footer: its logo (a file to store in R2, or
+ * the path of an image that is already on the site), the company name and the
+ * description under it. All three are `settings` rows, so this screen, the
+ * storefront and the page titles read the same values.
+ */
+const adminFooterBrandSave = async (request, env) => {
+  const form = await request.formData();
+  const data = Object.fromEntries(
+    [...form.entries()].map(([key, value]) => [key, typeof value === 'string' ? value : ''])
+  );
+  const file = uploadedFile(form, 'logo_file');
+  if (file) {
+    if (!env.MEDIA) return footerRedirect('error=brand-storage');
+    const stored = await storeMediaFile(env, file, 'image', 'footer');
+    if (stored.error) return footerRedirect(`error=brand-${stored.error === 'size' ? 'size' : 'type'}`);
+    // The stored path replaces whatever the field next to the picker held, so the
+    // two controls of a media field can never disagree.
+    data.footer_logo = stored.path;
+  }
+
+  const { error, values } = normalizeFooterBrand(data);
+  if (error) return footerRedirect(`error=${error}`);
+  await saveSettings(env.DB, values);
+  return footerRedirect('flash=brand-saved');
+};
+
 const adminFooterPage = async (request, env, user) => {
-  const groups = await footerMenu(env.DB);
+  const [groups, siteSettings] = await Promise.all([footerMenu(env.DB), loadSettings(env.DB)]);
   return adminResponse({
     env,
     user,
     title: 'Footer',
-    body: footerView({ groups }),
+    body: footerView({ groups, settings: siteSettings, media: Boolean(env.MEDIA) }),
     flash: adminNotice(new URL(request.url), FOOTER_NOTICES),
   });
 };
@@ -992,6 +1042,7 @@ const adminRoute = async (request, env, path, method) => {
     if (isPost) return methodNotAllowed();
     return isGet ? adminFooterPage(request, env, user) : methodNotAllowed();
   }
+  if (path === '/admin/footer/brand') return isPost ? adminFooterBrandSave(request, env) : methodNotAllowed();
   if (path === '/admin/footer/group') return isPost ? adminFooterGroupCreate(request, env) : methodNotAllowed();
   if (path === '/admin/footer/group/save') return isPost ? adminFooterGroupSave(request, env) : methodNotAllowed();
   if (path === '/admin/footer/group/delete') return isPost ? adminFooterGroupDelete(request, env) : methodNotAllowed();

@@ -112,6 +112,7 @@ const [
     mediaKey,
     normalizeAnnouncement,
     normalizeCategory,
+    normalizeFooterBrand,
     normalizeFooterGroup,
     normalizeFooterLink,
     normalizeHero,
@@ -761,6 +762,14 @@ if (mediaKey({ name: 'a.svg', type: 'image/svg+xml', size: 10 }, 'image').error 
 if (mediaKey({ name: 'huge.mp4', type: 'video/mp4', size: MEDIA_MAX_BYTES + 1 }, 'video').error !== 'size') {
   failures.push('admin: an oversized upload should be rejected');
 }
+// Every upload keeps the folder of the form it came from: the hero videos land in
+// `images/hero/`, the company logo in `images/footer/`.
+const logoUpload = mediaKey({ name: 'Chen Logo.PNG', type: 'image/png', size: 2048 }, 'image', 42, 'footer');
+if (logoUpload.error) failures.push(`admin: a valid logo upload was rejected (${logoUpload.error})`);
+if (logoUpload.key !== 'images/footer/42-chen-logo.png') failures.push(`admin: unexpected logo key ${logoUpload.key}`);
+if (logoUpload.path !== '/images/footer/42-chen-logo.png') {
+  failures.push('admin: the logo path should be the one the /images/* route serves');
+}
 
 // The storefront renders the same hero it rendered before the editor existed.
 const heroMarkup = render(storefrontHero(heroSection));
@@ -806,9 +815,13 @@ const footerGroups = [
   ]),
   footerColumn(3, 'Help', 3, [[31, 'Returns', '/pages/returns', 1]]),
 ];
-const footerSettings = { footer_copyright: '© 2026 Chen Furniture' };
+const footerSettings = {
+  footer_copyright: '© 2026 Chen Furniture',
+  site_name: 'Chen Furniture',
+  brand_line: 'Premium bean bags and furniture crafted for ultimate comfort and effortless style, indoors and out.',
+};
 
-const footerAdmin = render(footerView({ groups: footerGroups }));
+const footerAdmin = render(footerView({ groups: footerGroups, settings: footerSettings, media: true }));
 for (const expected of [
   'Footer',
   'action="/admin/footer/group"',
@@ -833,6 +846,25 @@ if (footerAdmin.includes('Location heading') || footerAdmin.includes('action="/a
 }
 if (footerAdmin.includes('country_options')) {
   failures.push('views: the footer admin screen still mentions the currency picker');
+}
+
+// The company block that opens the screen: the logo (a file picker plus the path
+// the site shows), the name and the description. All three are settings rows the
+// storefront reads back, and the picker only appears while MEDIA is bound.
+for (const expected of [
+  'action="/admin/footer/brand"',
+  'name="footer_logo"',
+  'name="logo_file"',
+  'name="site_name"',
+  'value="Chen Furniture"',
+  'name="brand_line"',
+  'Premium bean bags and furniture crafted for ultimate comfort and effortless style, indoors and out.',
+]) {
+  if (!footerAdmin.includes(expected)) failures.push(`views: the footer company block is missing ${expected}`);
+}
+const footerAdminNoMedia = render(footerView({ groups: footerGroups, settings: footerSettings, media: false }));
+if (footerAdminNoMedia.includes('name="logo_file"')) {
+  failures.push('views: the footer company block offers a file picker without a MEDIA bucket');
 }
 
 // The storefront renders those very columns, splits the row between them and
@@ -875,6 +907,26 @@ if (!twoColumns.includes('<div class="col-6">')) {
   failures.push('views: two footer columns should read as halves');
 }
 
+// The company block itself: the name and the line under it render as they always
+// did, and the uploaded logo is added above them. Without one there is no <img>.
+if (!footerMarkup.includes('>Chen Furniture</span>')) {
+  failures.push('views: the storefront footer lost the company name');
+}
+if (footerMarkup.includes('footer-logo')) {
+  failures.push('views: the storefront footer renders a logo without an uploaded one');
+}
+const logoFooter = render(
+  storefrontFooter({ ...footerSettings, footer_logo: '/images/footer/42-chen-logo.png' }, footerGroups)
+);
+for (const expected of [
+  '<img class="footer-logo d-block mb-3"',
+  'src="/images/footer/42-chen-logo.png"',
+  'alt="Chen Furniture"',
+  '>Chen Furniture</span>',
+]) {
+  if (!logoFooter.includes(expected)) failures.push(`views: the storefront footer is missing ${expected}`);
+}
+
 // 7. the footer form rules behind that screen
 if (normalizeFooterLink({ label: 'FAQ', url: '/pages/faq' }).error) failures.push('admin: a valid footer link was rejected');
 if (normalizeFooterLink({ label: 'Instagram', url: 'https://www.instagram.com/' }).error) {
@@ -903,6 +955,32 @@ if (normalizeFooterGroup({ label: '' }).error !== 'heading') {
 }
 if (normalizeFooterGroup({ label: ' Company ' }).values.label !== 'Company') {
   failures.push('admin: a footer heading should be trimmed');
+}
+
+// 8. the company block behind that card
+const brand = normalizeFooterBrand({
+  site_name: '  Chen   Furniture  ',
+  brand_line: '  Premium bean bags and furniture crafted for comfort.  ',
+  footer_logo: ' /images/footer/42-chen-logo.png ',
+});
+if (brand.error) failures.push(`admin: a valid company block was rejected (${brand.error})`);
+if (brand.values.site_name !== 'Chen Furniture') {
+  failures.push('admin: the company name should be trimmed and its runs of spaces collapsed');
+}
+if (brand.values.brand_line !== 'Premium bean bags and furniture crafted for comfort.') {
+  failures.push('admin: the company description should be trimmed');
+}
+if (brand.values.footer_logo !== '/images/footer/42-chen-logo.png') {
+  failures.push('admin: the company logo path should be trimmed');
+}
+if (normalizeFooterBrand({ site_name: 'Chen Furniture' }).values.footer_logo !== '') {
+  failures.push('admin: the company logo should be optional');
+}
+if (normalizeFooterBrand({ site_name: '   ' }).error !== 'brand-name') {
+  failures.push('admin: a company block without a name should be rejected');
+}
+if (normalizeFooterBrand({ site_name: 'Chen Furniture', footer_logo: 'logo.png' }).error !== 'brand-logo') {
+  failures.push('admin: a company logo that is neither a path nor a URL should be rejected');
 }
 
 if (failures.length) {

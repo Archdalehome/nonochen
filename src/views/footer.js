@@ -27,6 +27,9 @@ export const footer = (settings, groups = []) => {
           <div class="d-flex flex-column text-secondary">
             <div class="row mb-3 mb-md-4">
               <div class="col-12 col-md-8 fs-7">
+                ${settings.footer_logo
+                  ? html`<img class="footer-logo d-block mb-3" src="${settings.footer_logo}" alt="${settings.site_name || 'Chen Furniture'}" loading="lazy">`
+                  : ''}
                 <span class="footer-brand heading-font d-block mb-3">${settings.site_name || 'Chen Furniture'}</span>
                 ${settings.brand_line}
               </div>

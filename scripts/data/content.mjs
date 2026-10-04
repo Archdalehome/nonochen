@@ -11,6 +11,10 @@
 export const settings = [
   { key: 'site_name', value: 'Chen Furniture', group: 'brand' },
   { key: 'brand_line', value: 'Premium bean bags and furniture crafted for ultimate comfort and effortless style, indoors and out.', group: 'brand' },
+  // The logo over the company name in the footer (/admin/footer). Empty shows the
+  // name on its own, which is how that corner of the footer read before the
+  // upload existed.
+  { key: 'footer_logo', value: '', group: 'brand' },
   {
     key: 'announcement_text',
     value: 'Free Mainland UK Shipping On All Orders',

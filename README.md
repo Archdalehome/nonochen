@@ -163,8 +163,10 @@ so two quick pushes queue up instead of racing each other. Until
 A small admin area manages the **product categories** - the row of links in the
 header, next to the logo and the search/cart icons, on every page -, the **home
 page content** - the announcement bar that sits above that header and the hero
-video with the wording and links over it - and the **footer columns** under every
-page: the column headings and the links in them. The mobile drawer shows the same
+video with the wording and links over it - and the **footer** under every page:
+the company block in the corner (the uploaded logo, the name of the business and
+the line of copy under it) and the **footer columns** beside it - the column
+headings and the links in them. The mobile drawer shows the same
 category list above its three fixed links - **Search**, **Contact Details** and
 **Store Locator**; the menu tree that came in with the Shopify import is not
 rendered anywhere.
@@ -172,8 +174,9 @@ rendered anywhere.
 * `/admin/login` - sign in with **admin / admin** (see below to change it)
 * `/admin/home` - the announcement bar and the hero: its video (a path, a URL or
   an upload), the heading, text and links over it
-* `/admin/footer` - the link columns at the bottom of every page (Company, Follow
-  and Help): rename, reorder, hide and re-fill them
+* `/admin/footer` - the company block at the bottom left of every page (its logo,
+  the company name and the description under it) and the link columns beside it
+  (Company, Follow and Help): upload, rename, reorder, hide and re-fill them
 * `/admin/categories` - add, rename, reorder, hide and delete categories
 * `/admin/categories/products?slug=<slug>` - the products one category lists:
   edit any row, add a product that is already in the shop, create a brand new
@@ -290,6 +293,28 @@ button label removes the button, which makes the whole slide the link. Saving
 invalidates the cached `sections` / `settings` rows exactly like the category
 writes do, so the storefront shows the change on its next request.
 
+### The company block
+
+The bottom left corner of every page is the company block: a logo, the name of the
+business and one line of description under it. `/admin/footer` edits all three in
+one form:
+
+* the **logo** is a path to an image that is already on the site
+  (`/images/footer/logo.png`), a full `https://` URL, or a file picked in the form
+  - a picked file is stored in R2 under `images/footer/` and the field next to the
+  picker is updated to it, the same way the hero videos are handled. Leaving it
+  empty is fine: the name then stands on its own, which is how that corner of the
+  footer read before the upload existed;
+* the **company name** is required - the page titles (`<title>`, `og:site_name`)
+  and the meta description read the same `site_name` setting;
+* the **description** is the sentence under the name (`brand_line`), and it is
+  also the fallback meta description for pages without one of their own.
+
+The three parts are ordinary `settings` rows (`footer_logo`, `site_name`,
+`brand_line`), so the screen writes exactly what `views/footer.js` renders -
+`migrations/0012_footer_brand_logo.sql` added the `footer_logo` key to databases
+that were seeded before it, and an empty value means no logo.
+
 ### The footer columns
 
 `/admin/footer` edits the columns at the bottom of **every** page - the same rows
@@ -355,7 +380,7 @@ lives in Cloudflare and can be changed without a deploy:
 | --- | --- |
 | the remaining copy, the other homepage blocks, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
 | the announcement bar, the hero video and its wording | `/admin/home` (see above) |
-| the footer columns and the links in them | `/admin/footer` (see above), or the `menu_items` rows with `location = 'footer'` |
+| the company block in the footer and the link columns beside it | `/admin/footer` (see above), or the `settings` rows `footer_logo` / `site_name` / `brand_line` and the `menu_items` rows with `location = 'footer'` |
 | the header categories | `/admin/categories` (see above), or the `categories` table directly |
 | the products inside a category | `/admin/categories/products?slug=<slug>` (see above), or the `products` / `product_collections` / `product_variants` tables directly |
 | images and video | R2 `el-media` - dashboard -> *R2 -> el-media -> Objects*, or drop files into `./images` and run `npm run media:remote` |

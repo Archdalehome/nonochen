@@ -18,6 +18,7 @@ DELETE FROM settings;
 INSERT INTO settings (key, value, label, group_name) VALUES
   ('site_name', 'Chen Furniture', NULL, 'brand'),
   ('brand_line', 'Premium bean bags and furniture crafted for ultimate comfort and effortless style, indoors and out.', NULL, 'brand'),
+  ('footer_logo', '', NULL, 'brand'),
   ('announcement_text', 'Free Mainland UK Shipping On All Orders', 'Announcement bar message', 'header'),
   ('announcement_icon', '/images/icon-delivery.svg', NULL, 'header'),
   ('announcement_height', '26', NULL, 'header'),
@@ -39,9 +40,9 @@ INSERT INTO settings (key, value, label, group_name) VALUES
   ('newsletter_intro', 'Join now for all news and updates.', NULL, 'newsletter'),
   ('newsletter_placeholder', 'Email address', NULL, 'newsletter'),
   ('newsletter_button', 'Join the club', NULL, 'newsletter'),
-  ('newsletter_note', 'Unsubscribe anytime  |  By joining, you agree to our Privacy Policy', NULL, 'newsletter'),
-  ('footer_company_heading', 'Company', NULL, 'footer');
+  ('newsletter_note', 'Unsubscribe anytime  |  By joining, you agree to our Privacy Policy', NULL, 'newsletter');
 INSERT INTO settings (key, value, label, group_name) VALUES
+  ('footer_company_heading', 'Company', NULL, 'footer'),
   ('footer_help_heading', 'Help', NULL, 'footer'),
   ('footer_copyright', '© 2026 Chen Furniture | All Rights Reserved', NULL, 'footer'),
   ('footer_credit', '', NULL, 'footer'),

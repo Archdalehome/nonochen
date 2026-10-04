@@ -939,17 +939,19 @@ const footerLinkRow = (link, index, count) => html`
   </div>`;
 
 /**
- * `/admin/footer`: the link columns at the bottom of every page. The columns are
- * rows in `menu_items` (location = 'footer'), so nothing here decides how they
- * are laid out - the screen only changes the words, the links and the order.
+ * `/admin/footer`: the company block and the link columns at the bottom of every
+ * page. The columns are rows in `menu_items` (location = 'footer'), so nothing
+ * here decides how they are laid out - the screen only changes the words, the
+ * links and the order. The company block above them is three `settings` rows
+ * instead: the uploaded logo, the name and the description under it.
  */
-export const footerView = ({ groups = [] } = {}) => html`
+export const footerView = ({ groups = [], settings = {}, media = true } = {}) => html`
   <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div>
       <h1 class="heading-font text-uppercase h4 mb-1">Footer</h1>
       <p class="text-secondary fs-7 mb-0">
-        The link columns at the bottom of every page, in the order below. A link that starts with <code>/</code> stays on
-        the site; a full <code>https://</code> URL (the socials) opens in a new tab.
+        The company block and the link columns at the bottom of every page, in the order below. A link that starts with
+        <code>/</code> stays on the site; a full <code>https://</code> URL (the socials) opens in a new tab.
       </p>
       <p class="text-secondary fs-8 mb-0">
         The copyright line is a setting, not a column - <code>footer_copyright</code> lives in D1.
@@ -957,6 +959,65 @@ export const footerView = ({ groups = [] } = {}) => html`
     </div>
     <span class="fs-7 text-secondary">${groups.length} column${groups.length === 1 ? '' : 's'}</span>
   </div>
+
+  <section class="card border-0 shadow-sm rounded-3 mb-4">
+    <form method="post" action="/admin/footer/brand" enctype="multipart/form-data">
+      <div class="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h2 class="h6 text-uppercase mb-0">Company block</h2>
+        <span class="fs-8 text-secondary">${settings.footer_logo || 'no logo - the name stands on its own'}</span>
+      </div>
+      <div class="card-body row g-3">
+        <div class="col-12 col-lg-4">
+          <p class="form-label fs-8 text-uppercase mb-1">On the site now</p>
+          ${settings.footer_logo
+            ? html`<img class="d-block bg-body-secondary rounded p-2" style="max-height: 6rem" src="${settings.footer_logo}" alt="${settings.site_name || 'Chen Furniture'}">`
+            : html`<p class="fs-8 text-secondary mb-0">No logo yet, so the footer shows the name on its own.</p>`}
+          <p class="fs-8 text-secondary mt-1 mb-0">
+            <strong>${settings.site_name || 'Chen Furniture'}</strong>
+            ${settings.brand_line ? html` &middot; ${settings.brand_line}` : ''}
+          </p>
+        </div>
+        <div class="col-12 col-lg-8 row g-3">
+          ${mediaField({
+            id: 'footer-logo',
+            name: 'footer_logo',
+            label: 'Company logo',
+            value: settings.footer_logo || '',
+            file: 'logo_file',
+            accept: 'image/jpeg,image/png,image/webp,image/avif',
+            hint: '/images/footer/logo.png - empty: no logo',
+            upload: media,
+          })}
+          ${textField({
+            id: 'footer-brand-name',
+            name: 'site_name',
+            label: 'Company name',
+            value: settings.site_name || '',
+            col: 'col-12 col-lg-6',
+            attrs: 'maxlength="60" required',
+          })}
+          ${textAreaField({
+            id: 'footer-brand-line',
+            name: 'brand_line',
+            label: 'Description',
+            value: settings.brand_line || '',
+            rows: 3,
+            col: 'col-12 col-lg-6',
+            attrs: 'maxlength="300"',
+          })}
+          <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="fs-8 text-secondary">
+              ${media
+                ? 'A file you pick is stored in R2 and the field next to it is updated to it.'
+                : 'No MEDIA bucket is bound, so only a path or a URL can be saved.'}
+              The logo sits above the name; leave it empty to show the name alone.
+            </span>
+            <button class="btn btn-primary btn-sm rounded px-4" type="submit">Save company block</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </section>
 
   <section class="card border-0 shadow-sm rounded-3 mb-4">
     <div class="card-body row g-3 align-items-end">

@@ -536,6 +536,34 @@ export const normalizeFooterLink = (data) => {
   };
 };
 
+/**
+ * The company block that opens the footer: the logo over the name and the line
+ * under it. Unlike the columns it is not a `menu_items` row - the three parts are
+ * `settings` rows (`footer_logo`, `site_name`, `brand_line`), which is what
+ * /admin/footer writes and `views/footer.js` renders.
+ *
+ * The keys are the query values /admin/footer reports errors with, so
+ * `src/index.js` turns them straight into notices.
+ */
+export const FOOTER_BRAND_ERRORS = {
+  'brand-name': 'The company block needs the name of the business, for example Chen Furniture.',
+  'brand-logo': 'The logo has to be a path such as /images/footer/logo.png or a full https:// URL (or left empty).',
+};
+
+/**
+ * The company block form: the logo (optional - without one the name stands on its
+ * own), the name and the description under it. A name is required because the
+ * header, the page titles and `views/footer.js` all read the same setting.
+ */
+export const normalizeFooterBrand = (data = {}) => {
+  const name = clip(data.site_name, 60).replace(/\s+/g, ' ');
+  const line = clip(data.brand_line, 300);
+  const logo = clip(data.footer_logo, 300);
+  const error = !name ? 'brand-name' : logo && !onSite(logo) ? 'brand-logo' : '';
+  if (error) return { error, message: FOOTER_BRAND_ERRORS[error], values: null };
+  return { error: '', message: '', values: { site_name: name, brand_line: line, footer_logo: logo } };
+};
+
 /* -------------------------------------------------------------- uploads ---- */
 
 /**
@@ -563,10 +591,14 @@ export const MEDIA_MAX_BYTES = 25 * 1024 * 1024;
  * Turns one uploaded file into the R2 key it will live under. The `images/`
  * prefix is what the `/images/*` route reads, and the timestamp keeps a replaced
  * video from being served out of the year long cache of the one it replaced.
+ *
+ * Every upload lands in the folder of the form it came from - hero videos in
+ * `images/hero/`, the footer logo in `images/footer/` - so the objects stay easy
+ * to find next to the files `scripts/upload-media.mjs` pushes.
  */
-export const mediaKey = (file, kind = 'video', stamp = Date.now()) => {
+export const mediaKey = (file, kind = 'video', stamp = Date.now(), folder = 'hero') => {
   const table = MEDIA_TYPES[kind] || MEDIA_TYPES.video;
-  const name = slugify(String(file.name || '').replace(/\.[^.]+$/, '')) || 'hero';
+  const name = slugify(String(file.name || '').replace(/\.[^.]+$/, '')) || folder;
   const declared = String(file.type || '').toLowerCase();
   const extension = table.mime[declared];
   if (!extension) {
@@ -576,7 +608,7 @@ export const mediaKey = (file, kind = 'video', stamp = Date.now()) => {
   if (file.size > MEDIA_MAX_BYTES) {
     return { error: 'size', path: '', message: `That file is ${Math.round(file.size / 1048576)} MB - the limit is 25 MB.` };
   }
-  const key = `images/hero/${stamp}-${name}.${extension}`;
+  const key = `images/${folder}/${stamp}-${name}.${extension}`;
   // `contentType` is what R2 hands back with the object, so the browser gets a
   // real video/mp4 (the extension is only part of the key).
   return { error: '', kind, key, path: `/${key}`, contentType: declared, message: '' };
