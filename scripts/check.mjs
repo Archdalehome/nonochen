@@ -327,6 +327,12 @@ const withoutPolicies = render(
 if (!withoutPolicies.includes('FALLBACK DELIVERY COPY')) {
   failures.push('views: the product delivery accordion lost its fallback copy');
 }
+// The sentence the shop reported as wrong used to be hardcoded in this template;
+// it must not come back even when the settings fallback is empty.
+const productTemplate = readFileSync(new URL('src/views/product.js', root), 'utf8');
+if (/Free UK delivery on orders over|dispatched the same working day/i.test(productTemplate)) {
+  failures.push('views: src/views/product.js still hardcodes the old delivery copy');
+}
 
 
 // 5. the category form rules behind those screens
