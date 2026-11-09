@@ -50,7 +50,8 @@ await check('/cart', { contains: ['Your Cart'] });
 await check('/checkout', {});
 await check('/checkout/thanks?name=Ada', { contains: ['Ada'] });
 await check('/search?q=bean', { contains: ['bean'] });
-await check('/pages/delivery', {});
+const deliveryPage = await check('/pages/delivery', {});
+const returnsPage = await check('/pages/returns', {});
 await check('/pages/not-a-page', { expect: 404 });
 await check('/nope', { expect: 404 });
 await check('/robots.txt', { contains: ['Sitemap:'], type: 'text/plain' });
@@ -74,6 +75,34 @@ if (!handle) {
   console.log('FAIL no product handle found on /products');
 } else {
   detailBody = (await check(`/products/${handle}`, { contains: [handle] })).body;
+}
+
+// The "Delivery & returns" accordion has to mirror the content pages, not the
+// old `pdp_delivery_copy` setting: compare the first paragraph of each page with
+// the product page, and fail if the stale storefront copy is still there.
+const firstParagraph = (body) => (body.match(/<p>[\s\S]*?<\/p>/) || [''])[0];
+if (detailBody) {
+  const policies = [
+    { handle: 'delivery', page: deliveryPage },
+    { handle: 'returns', page: returnsPage },
+  ];
+  for (const { handle: policy, page: content } of policies) {
+    const copy = firstParagraph(content.body);
+    const link = `href="/pages/${policy}"`;
+    const problems = [];
+    if (!detailBody.includes(link)) problems.push(`no ${link}`);
+    if (copy && !detailBody.includes(copy)) problems.push(`the /pages/${policy} copy is missing`);
+    if (problems.length) {
+      failures++;
+      console.log(`FAIL /products/${handle}  <- ${problems.join('; ')}`);
+      const at = detailBody.indexOf('id="pdp-delivery"');
+      console.log(`     delivery accordion: ${detailBody.slice(at, at + 1200).replace(/\s+/g, ' ')}`);
+    }
+  }
+  if (detailBody.includes('Free UK delivery on orders over')) {
+    failures++;
+    console.log(`FAIL /products/${handle}  <- the old delivery copy is still on the page`);
+  }
 }
 
 // The first collection *card* on /collections: the header and the drawer link to
