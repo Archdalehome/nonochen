@@ -252,9 +252,11 @@ const productRoute = async (request, env, ctx, handle) => {
   const product = await productByHandle(env.DB, handle);
   if (!product) return notFound(ctx, 'That product is no longer available.');
 
-  const [related, category] = await Promise.all([
+  const [related, category, deliveryPage, returnsPage] = await Promise.all([
     relatedProducts(env.DB, product, 4),
     categoryOfProduct(env.DB, product),
+    sections(env.DB, 'page:delivery'),
+    sections(env.DB, 'page:returns'),
   ]);
   const symbol = ctx.symbol;
   const title = product.seo_title || product.title;
@@ -265,7 +267,7 @@ const productRoute = async (request, env, ctx, handle) => {
     description: product.seo_description || product.summary,
     canonical: new URL(`/products/${product.handle}`, request.url).toString(),
     image: product.image,
-    body: productView({ product, related, settings: ctx.settings, symbol, category }),
+    body: productView({ product, related, settings: ctx.settings, symbol, category, deliveryPage, returnsPage }),
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'Product',

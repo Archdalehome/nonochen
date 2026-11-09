@@ -303,6 +303,31 @@ if (!looseProduct.includes('<a class="text-secondary" href="/products">Shop</a>'
   failures.push('views: a product without a category should breadcrumb through Shop');
 }
 
+// The "Delivery & returns" accordion reads the two content pages instead of
+// keeping its own copy, so editing /pages/delivery or /pages/returns shows up
+// on every product page.
+const policyPages = {
+  deliveryPage: [{ type: 'page', data: { title: 'Delivery Details', body: '<p>DELIVERY PAGE COPY</p>' } }],
+  returnsPage: [{ type: 'page', data: { title: 'Returns', body: '<p>RETURNS PAGE COPY</p>' } }],
+};
+const withPolicies = render(
+  productPage({ product: filedProduct, settings: { pdp_delivery_copy: 'STALE DELIVERY COPY' }, symbol: '£', ...policyPages })
+);
+for (const expected of ['DELIVERY PAGE COPY', 'RETURNS PAGE COPY', 'href="/pages/delivery"', 'href="/pages/returns"']) {
+  if (!withPolicies.includes(expected)) {
+    failures.push(`views: the product delivery accordion is missing ${expected}`);
+  }
+}
+if (withPolicies.includes('STALE DELIVERY COPY')) {
+  failures.push('views: the product delivery accordion still renders the old settings copy');
+}
+const withoutPolicies = render(
+  productPage({ product: filedProduct, settings: { pdp_delivery_copy: 'FALLBACK DELIVERY COPY' }, symbol: '£' })
+);
+if (!withoutPolicies.includes('FALLBACK DELIVERY COPY')) {
+  failures.push('views: the product delivery accordion lost its fallback copy');
+}
+
 
 // 5. the category form rules behind those screens
 const valid = normalizeCategory({ name: 'Outdoor  Bean Bags', slug: '', url: '', filter_type: 'tag', enabled: '1' });

@@ -383,6 +383,7 @@ lives in Cloudflare and can be changed without a deploy:
 | what | where |
 | --- | --- |
 | the remaining copy, the other homepage blocks, carts | D1 `el_store` - Cloudflare dashboard -> *Workers & Pages -> D1 -> el_store -> Console*, or `npx wrangler d1 execute el_store --remote --command "select * from settings"` |
+| the content pages (`/pages/<handle>`), including Delivery and Returns | the `sections` rows with `page = 'page:<handle>'` (`data.title` / `data.body`). The product page's **Delivery & returns** accordion renders the `page:delivery` and `page:returns` bodies, so editing either page updates the product page on the next request too |
 | the announcement bar, the hero video and its wording | `/admin/home` (see above) |
 | the company block in the footer and the link columns beside it | `/admin/footer` (see above), or the `settings` rows `footer_logo` / `site_name` / `brand_line` and the `menu_items` rows with `location = 'footer'` |
 | the header categories | `/admin/categories` (see above), or the `categories` table directly |

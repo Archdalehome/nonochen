@@ -100,7 +100,32 @@ const buyBox = (product, settings, symbol) => {
     </div>`;
 };
 
-const accordion = (product, settings) => html`
+/**
+ * The "Delivery & returns" accordion no longer keeps its own copy: it renders
+ * the `/pages/delivery` and `/pages/returns` content pages (`page:delivery` /
+ * `page:returns` sections), so editing either page updates every product page.
+ * `fallback` is only used while the page is missing, hidden or empty.
+ */
+const policyBlock = ({ handle, label, list = [], fallback = '' }) => {
+  const sections = list.filter(
+    (section) => section.type === 'page' && section.data && (section.data.title || section.data.body)
+  );
+  const heading = sections.length && sections[0].data.title ? sections[0].data.title : label;
+
+  return html`
+    <div class="pdp-policy mb-3">
+      <h3 class="fs-7 fw-bold mb-2">
+        <a class="text-reset" href="/pages/${handle}">${heading}</a>
+      </h3>
+      ${sections.length
+        ? sections.map((section) => (section.data.body ? html`<div class="rte mb-2">${safe(section.data.body)}</div>` : ''))
+        : fallback
+          ? html`<p class="mb-2">${fallback}</p>`
+          : ''}
+    </div>`;
+};
+
+const accordion = (product, settings, { deliveryPage = [], returnsPage = [] } = {}) => html`
   <div class="accordion accordion-flush border-top mt-4" id="pdpAccordion">
     <div class="accordion-item">
       <h2 class="accordion-header" id="pdp-description-heading">
@@ -139,7 +164,8 @@ const accordion = (product, settings) => html`
       </h2>
       <div id="pdp-delivery" class="accordion-collapse collapse" aria-labelledby="pdp-delivery-heading" data-bs-parent="#pdpAccordion">
         <div class="accordion-body px-0 text-secondary fs-7">
-          ${settings.pdp_delivery_copy || 'Free UK delivery on orders over £75. Orders placed before 1pm are dispatched the same working day.'}
+          ${policyBlock({ handle: 'delivery', label: 'Delivery Details', list: deliveryPage, fallback: settings.pdp_delivery_copy })}
+          ${policyBlock({ handle: 'returns', label: 'Returns', list: returnsPage })}
         </div>
       </div>
     </div>
@@ -147,7 +173,7 @@ const accordion = (product, settings) => html`
 
 /* -------------------------------------------------------------- full page ---- */
 
-export const productView = ({ product, related = [], settings, symbol = '£', category = null }) => {
+export const productView = ({ product, related = [], settings, symbol = '£', category = null, deliveryPage = [], returnsPage = [] }) => {
   // Home / the category this product was filed under in /admin / the product.
   // The crumb comes from `categoryOfProduct`, never from the product's own
   // collection: a product can sit in a curated list that is not its category.
@@ -176,7 +202,7 @@ export const productView = ({ product, related = [], settings, symbol = '£', ca
         </div>
         <div class="col-12 col-lg-5">${buyBox(product, settings, symbol)}</div>
       </div>
-      ${accordion(product, settings)}
+      ${accordion(product, settings, { deliveryPage, returnsPage })}
     </div>
   </section>
 
